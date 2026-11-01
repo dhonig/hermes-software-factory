@@ -1,0 +1,21 @@
+# Copy to factory.conf (git-ignored) and edit.
+
+# The repository the factory works on. Each build task gets its own worktree
+# under <repo>/.worktrees/.
+TARGET_REPO="$HOME/IdeaProjects/my-app"
+
+# Kanban board used only by the factory.
+BOARD="software-factory"
+BOARD_NAME="Software Factory"
+
+# Role profiles are named <prefix><role>, e.g. sf-planner.
+PROFILE_PREFIX="sf-"
+
+# Guardrails from the article: few workers, small failure budget.
+MAX_IN_PROGRESS=2               # tasks running at once across the board
+MAX_IN_PROGRESS_PER_PROFILE=1   # one worker per role at a time
+FAILURE_LIMIT=2                 # consecutive failures before a task is blocked
+
+# Discord channel IDs (written here by scripts/discord-setup.sh).
+DISCORD_NOTIFY_CHANNEL=""
+DISCORD_GUILD_ID=""

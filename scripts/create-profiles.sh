@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Create one Hermes profile per role, each with its own SOUL.md role prompt.
+# Profiles clone the default profile's model and keys, but not its messaging
+# channels, so only the default gateway talks to Discord.
+. "$(dirname "$0")/../lib/common.sh"
+
+describe() {
+  case "$1" in
+    planner)  echo "Breaks a feature request into small backend/frontend build tasks. Never writes code." ;;
+    backend)  echo "Builds server-side code, APIs, data and migrations in an isolated git worktree." ;;
+    frontend) echo "Builds UI and client-side code in an isolated git worktree." ;;
+    reviewer) echo "Independent code reviewer. Approves or requests changes with concrete reasons." ;;
+    security) echo "Independent security check of a branch's diff: injection, secrets, deps, unsafe defaults." ;;
+    qa)       echo "Runs tests and exercises the feature end to end before a human merges." ;;
+  esac
+}
+
+for role in $ROLES; do
+  p=$(profile_name "$role")
+  if profile_exists "$p"; then
+    log "Profile $p already exists; refreshing its role prompt."
+  else
+    log "Creating profile $p"
+    run hermes profile create "$p" --clone-from default --no-alias --description "$(describe "$role")"
+    state_add profiles "$p"
+  fi
+
+  home="$HOME/.hermes/profiles/$p"
+  if [ "$DRY_RUN" = "1" ]; then
+    run cp "$FACTORY_ROOT/roles/$role.md" "$home/SOUL.md"
+  else
+    [ -d "$home" ] || home="$(hermes profile show "$p" | awk '/^Path:/ {print $2}')"
+    cp "$FACTORY_ROOT/roles/$role.md" "$home/SOUL.md"
+  fi
+done
+
+# The Planner plans; it never touches code. Workers run with the profile's
+# CLI toolsets, so removing these there removes them from kanban runs too.
+log "Removing code-editing tools from $(profile_name planner)"
+run hermes -p "$(profile_name planner)" tools disable --platform cli terminal file code_execution delegation
