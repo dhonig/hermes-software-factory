@@ -38,7 +38,7 @@ for role in $ROLES; do
 done
 check "Discord bot token set" "grep -q '^DISCORD_BOT_TOKEN=.' \"\$(hermes config env-path)\"" "./factory.sh discord"
 check "Discord alerts channel set" "[ -n '$DISCORD_NOTIFY_CHANNEL' ]" "./factory.sh discord"
-routes=$(hermes config get gateway.profile_routes 2>/dev/null || echo "[]")
+routes=$(routes_json)
 for role in $ROLES; do
   p=$(profile_name "$role")
   check "#$role channel routed to $p" \

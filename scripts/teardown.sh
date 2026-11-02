@@ -27,8 +27,7 @@ fi
 
 if grep -qx routes "$STATE_DIR/discord" 2>/dev/null; then
   log "Removing role-channel routes"
-  routes=$(hermes config get gateway.profile_routes 2>/dev/null | jq -c --arg p "$PROFILE_PREFIX" \
-    '[.[] | select((.name // "") | startswith($p) | not)]' 2>/dev/null || echo "[]")
+  routes=$(routes_json | jq -c --arg p "$PROFILE_PREFIX" '[.[] | select((.name // "") | startswith($p) | not)]')
   run hermes config set gateway.profile_routes "$routes" >/dev/null
 fi
 

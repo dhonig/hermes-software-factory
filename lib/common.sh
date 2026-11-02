@@ -165,3 +165,9 @@ conf_set() {
   echo "$1=\"$2\"" >> "$conf.tmp"
   mv "$conf.tmp" "$conf"
 }
+
+# gateway.profile_routes as a JSON array ([] when unset).
+routes_json() {
+  hermes config get gateway.profile_routes --json 2>/dev/null \
+    | jq -c 'if type=="array" then . else [] end' 2>/dev/null || echo "[]"
+}

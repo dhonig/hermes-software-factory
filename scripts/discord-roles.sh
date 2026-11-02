@@ -29,7 +29,7 @@ for role in $ROLES; do
 done
 
 # Keep any routes that aren't the factory's own.
-existing=$(hermes config get gateway.profile_routes 2>/dev/null | jq -c 'if type=="array" then . else [] end' 2>/dev/null || echo "[]")
+existing=$(routes_json)
 merged=$(jq -cn --argjson old "$existing" --argjson new "$routes" --arg p "$PROFILE_PREFIX" \
   '[$old[] | select((.name // "") | startswith($p) | not)] + $new')
 
