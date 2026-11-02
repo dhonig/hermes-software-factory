@@ -11,7 +11,8 @@ Before you continue, in https://discord.com/developers/applications:
   1. Bot tab: Reset Token and copy it.
   2. Bot tab: turn on Message Content Intent and Server Members Intent. Save.
   3. Invite the bot to your server (OAuth2 URL with scopes bot + applications.commands).
-  4. In Discord, Settings > Advanced > Developer Mode on, so you can copy IDs.
+  4. In Discord, User Settings > Advanced > Developer Mode on. The prompts below
+     want numeric IDs (right-click > Copy ID), not names.
   5. Create a #factory-alerts channel, plus one channel per role if you want them
      (#planner #backend #frontend #reviewer #security #qa).
 
@@ -21,6 +22,23 @@ ask() { # ask VAR "prompt" [default]
   local reply
   read -r -p "$2${3:+ [$3]}: " reply
   printf -v "$1" '%s' "${reply:-${3:-}}"
+}
+
+# Discord IDs are long numbers (snowflakes), not usernames or #names.
+# Right-click a user, server or channel with Developer Mode on to copy one.
+ask_ids() { # ask_ids VAR "prompt" required|optional
+  local val
+  while :; do
+    ask val "$2"
+    val=$(printf '%s' "$val" | tr -d ' ')
+    if [ -z "$val" ]; then
+      [ "$3" = optional ] && break
+    elif printf '%s' "$val" | grep -qE '^[0-9]{15,22}(,[0-9]{15,22})*$'; then
+      break
+    fi
+    warn "Expected a numeric Discord ID like 284102345871466496 (right-click > Copy ID)."
+  done
+  printf -v "$1" '%s' "$val"
 }
 
 existing_token=0
@@ -35,11 +53,10 @@ if [ "$existing_token" = 0 ]; then
   [ -n "$token" ] || die "No token entered."
 fi
 
-ask user_id   "Your Discord user ID"
-ask guild_id  "Server (guild) ID"
-ask alerts_id "#factory-alerts channel ID"
-ask role_ids  "Role channel IDs, comma-separated (optional)"
-[ -n "$user_id" ] && [ -n "$alerts_id" ] || die "User ID and alerts channel ID are required."
+ask_ids user_id   "Your Discord user ID (number; right-click your name > Copy User ID)" required
+ask_ids guild_id  "Server ID (right-click the server icon > Copy Server ID)" required
+ask_ids alerts_id "#factory-alerts channel ID (right-click the channel > Copy Channel ID)" required
+ask_ids role_ids  "Role channel IDs, comma-separated (optional, Enter to skip)" optional
 
 allowed="$alerts_id${role_ids:+,$role_ids}"
 
