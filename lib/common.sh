@@ -104,14 +104,15 @@ notify_discord() {
   local task="$1" role="$2" var chan
   var="DISCORD_CHANNEL_$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
   chan=$(eval "printf '%s' \"\${$var:-}\"")
-  [ -n "$chan" ] && _subscribe "$task" "$chan"
-  [ "${3:-}" = alerts ] && [ -n "$DISCORD_NOTIFY_CHANNEL" ] && _subscribe "$task" "$DISCORD_NOTIFY_CHANNEL"
+  [ -n "$chan" ] && _subscribe "$task" "$chan" "$(profile_name "$role")"
+  [ "${3:-}" = alerts ] && [ -n "$DISCORD_NOTIFY_CHANNEL" ] && _subscribe "$task" "$DISCORD_NOTIFY_CHANNEL" default
   return 0
 }
 
-_subscribe() {
-  local extra=()
-  [ -n "$DISCORD_GUILD_ID" ] && extra=(--guild-id "$DISCORD_GUILD_ID")
+# A role channel is routed to its role profile, so that profile must deliver.
+_subscribe() { # _subscribe <task> <channel> <notifier-profile>
+  local extra=(--notifier-profile "$3")
+  [ -n "$DISCORD_GUILD_ID" ] && extra+=(--guild-id "$DISCORD_GUILD_ID")
   local out
   out=$(run kanban notify-subscribe "$1" --platform discord --chat-id "$2" \
     --chat-type channel --delivery-mode notify ${extra[@]+"${extra[@]}"} </dev/null) \
