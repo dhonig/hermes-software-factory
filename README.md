@@ -22,6 +22,7 @@ feature request ─▶ Planner ─▶ (you approve) ─▶ Backend / Frontend bu
 | Auto-decomposition off | `kanban.auto_decompose=false`; you approve each plan with `./factory.sh approve` |
 | Quiet routine updates | No wake-on-completion; tasks post passive notices to `#factory-alerts` |
 | Discord gateway | One bot, mention-only, only your user ID, ignores other bots. `#factory-alerts` gets task notices; `#planner`, `#backend`, … are routed to each role profile with `gateway.profile_routes` |
+| Builders commit, judges don't edit | The `factory-guard` Hermes plugin commits any uncommitted builder work when the Reviewer starts and hands self-reviews to the Reviewer. Reviewer, Security and QA have no file-editing tools |
 | ECC shared memory | `.ecc/memory/` Markdown notes in the target repo, read by every agent |
 
 ## Quick start
@@ -55,6 +56,7 @@ factory.sh                 entry point
 lib/common.sh              shared helpers, config loading, --dry-run
 scripts/                   one script per step
 roles/*.md                 role prompts (become each profile's SOUL.md)
+hermes-plugin/factory-guard/  dispatcher hooks installed by init
 templates/memory/*.md      seed files for .ecc/memory/
 factory.conf.example       settings; copy to factory.conf
 .factory/                  local state: backups, what was created, approved plans
