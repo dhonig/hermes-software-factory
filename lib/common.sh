@@ -105,3 +105,63 @@ notify_discord() {
     --chat-type channel --delivery-mode notify ${extra[@]+"${extra[@]}"} >/dev/null || \
     warn "could not subscribe $1 to Discord notifications"
 }
+
+# --- Interactive prompts and settings files (used by the Discord scripts) ---
+
+ask() { # ask VAR "prompt" [default]
+  local reply
+  read -r -p "$2${3:+ [$3]}: " reply
+  printf -v "$1" '%s' "${reply:-${3:-}}"
+}
+
+# Discord IDs are long numbers (snowflakes), not usernames or #names.
+# Right-click a user, server or channel with Developer Mode on to copy one.
+ask_ids() { # ask_ids VAR "prompt" required|optional [default]
+  local val
+  while :; do
+    ask val "$2" "${4:-}"
+    val=$(printf '%s' "$val" | tr -d ' ')
+    if [ -z "$val" ]; then
+      [ "$3" = optional ] && break
+    elif printf '%s' "$val" | grep -qE '^[0-9]{15,22}(,[0-9]{15,22})*$'; then
+      break
+    fi
+    warn "Expected a numeric Discord ID like 284102345871466496 (right-click > Copy ID)."
+  done
+  printf -v "$1" '%s' "$val"
+}
+
+ENV_FILE="$(hermes config env-path 2>/dev/null || echo "$HOME/.hermes/.env")"
+
+# Write KEY=VALUE into Hermes's .env without putting the value on any command line.
+set_env() {
+  local key="$1" tmp
+  if [ "$DRY_RUN" = "1" ]; then
+    printf '%s[dry-run]%s set %s in %s\n' "$C_DIM" "$C_OFF" "$key" "$ENV_FILE"
+    return
+  fi
+  tmp=$(mktemp)
+  KEY="$key" awk -F= '$1 != ENVIRON["KEY"]' "$ENV_FILE" > "$tmp" 2>/dev/null || true
+  printf '%s=%s\n' "$key" "$2" >> "$tmp"
+  cat "$tmp" > "$ENV_FILE"; rm -f "$tmp"
+}
+
+backup_env() {
+  [ "$DRY_RUN" = "1" ] && return 0
+  touch "$ENV_FILE"
+  cp "$ENV_FILE" "$STATE_DIR/env.bak.$(date +%Y%m%d%H%M%S)"
+  log "Backed up $ENV_FILE to $STATE_DIR"
+}
+
+# Set KEY="value" in factory.conf.
+conf_set() {
+  local conf="$FACTORY_ROOT/factory.conf"
+  if [ "$DRY_RUN" = "1" ]; then
+    printf '%s[dry-run]%s set %s=%s in factory.conf\n' "$C_DIM" "$C_OFF" "$1" "$2"
+    return
+  fi
+  [ -f "$conf" ] || cp "$FACTORY_ROOT/factory.conf.example" "$conf"
+  grep -v "^$1=" "$conf" > "$conf.tmp" || true
+  echo "$1=\"$2\"" >> "$conf.tmp"
+  mv "$conf.tmp" "$conf"
+}

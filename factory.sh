@@ -11,6 +11,7 @@ usage: ./factory.sh <command> [args] [--dry-run]
 Setup
   init                 board + role profiles + guardrails + .ecc/memory (safe to rerun)
   discord              connect the gateway to Discord (interactive; you paste the token)
+  channels             give each role its own Discord channel (asks for 6 channel IDs)
   doctor               check tools, config, gateway, board, profiles
 
 Work
@@ -32,6 +33,7 @@ case "$cmd" in
     "$S/memory-init.sh" "$@"
     echo; echo "Next: ./factory.sh discord, then ./factory.sh doctor" ;;
   discord)  "$S/discord-setup.sh" "$@" ;;
+  channels) "$S/discord-roles.sh" "$@" ;;
   doctor)   "$S/doctor.sh" "$@" ;;
   feature)  "$S/new-feature.sh" "$@" ;;
   approve)  "$S/approve-plan.sh" "$@" ;;

@@ -21,7 +21,7 @@ feature request ─▶ Planner ─▶ (you approve) ─▶ Backend / Frontend bu
 | Low concurrency | 2 tasks running at most, 1 per role, blocked after 2 consecutive failures |
 | Auto-decomposition off | `kanban.auto_decompose=false`; you approve each plan with `./factory.sh approve` |
 | Quiet routine updates | No wake-on-completion; tasks post passive notices to `#factory-alerts` |
-| Discord gateway | One bot, mention-only, only your user ID, only factory channels, ignores other bots |
+| Discord gateway | One bot, mention-only, only your user ID, ignores other bots. `#factory-alerts` gets task notices; `#planner`, `#backend`, … are routed to each role profile with `gateway.profile_routes` |
 | ECC shared memory | `.ecc/memory/` Markdown notes in the target repo, read by every agent |
 
 ## Quick start
@@ -30,6 +30,7 @@ feature request ─▶ Planner ─▶ (you approve) ─▶ Backend / Frontend bu
 cp factory.conf.example factory.conf     # set TARGET_REPO
 ./factory.sh init                        # board, profiles, guardrails, .ecc/memory
 ./factory.sh discord                     # interactive; you paste the bot token
+./factory.sh channels                    # one Discord channel per role (rerun anytime)
 ./factory.sh doctor                      # everything green?
 
 ./factory.sh feature "Add CSV export to the reports page"

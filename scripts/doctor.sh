@@ -38,5 +38,12 @@ for role in $ROLES; do
 done
 check "Discord bot token set" "grep -q '^DISCORD_BOT_TOKEN=.' \"\$(hermes config env-path)\"" "./factory.sh discord"
 check "Discord alerts channel set" "[ -n '$DISCORD_NOTIFY_CHANNEL' ]" "./factory.sh discord"
+routes=$(hermes config get gateway.profile_routes 2>/dev/null || echo "[]")
+for role in $ROLES; do
+  p=$(profile_name "$role")
+  check "#$role channel routed to $p" \
+    "printf '%s' '$routes' | jq -e --arg p '$p' 'any(.[]; .profile == \$p and .platform == \"discord\")'" \
+    "./factory.sh channels"
+done
 
 [ "$fail" = 0 ] && log "All checks passed." || { warn "Some checks failed."; exit 1; }

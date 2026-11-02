@@ -25,6 +25,13 @@ if [ -f "$STATE_DIR/profiles" ]; then
   done < "$STATE_DIR/profiles"
 fi
 
+if grep -qx routes "$STATE_DIR/discord" 2>/dev/null; then
+  log "Removing role-channel routes"
+  routes=$(hermes config get gateway.profile_routes 2>/dev/null | jq -c --arg p "$PROFILE_PREFIX" \
+    '[.[] | select((.name // "") | startswith($p) | not)]' 2>/dev/null || echo "[]")
+  run hermes config set gateway.profile_routes "$routes" >/dev/null
+fi
+
 if [ -f "$STATE_DIR/config-before.txt" ]; then
   while IFS= read -r kv; do
     k=${kv%%=*}; v=${kv#*=}
