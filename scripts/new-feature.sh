@@ -46,7 +46,7 @@ id=$(create_task "Plan: $goal" --assignee "$(profile_name planner)" \
   --idempotency-key "plan:$(slugify "$goal")")
 rm -f "$body_file"
 
-notify_discord "$id"
+notify_discord "$id" planner alerts
 log "Planner task $id created."
 echo "When it's done, review and approve the plan with:"
 echo "  ./factory.sh approve $id"

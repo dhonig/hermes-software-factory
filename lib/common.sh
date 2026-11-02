@@ -16,6 +16,7 @@ TARGET_REPO=""
 MAX_IN_PROGRESS=2
 MAX_IN_PROGRESS_PER_PROFILE=1
 FAILURE_LIMIT=2
+BUILDER_MODEL=""
 DISCORD_NOTIFY_CHANNEL=""
 DISCORD_GUILD_ID=""
 
@@ -96,14 +97,27 @@ create_task() {
   kanban create "$@" --json </dev/null | jq -r '.id // .task.id'
 }
 
-# Subscribe a task to the Discord alerts channel (passive, terminal events only).
+# Post a task's outcome (done, blocked) to Discord: in its role's channel, so
+# each agent reports where you talk to it, and optionally in #factory-alerts.
+#   notify_discord <task-id> <role> [alerts]
 notify_discord() {
-  [ -n "$DISCORD_NOTIFY_CHANNEL" ] || return 0
+  local task="$1" role="$2" var chan
+  var="DISCORD_CHANNEL_$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
+  chan=$(eval "printf '%s' \"\${$var:-}\"")
+  [ -n "$chan" ] && _subscribe "$task" "$chan"
+  [ "${3:-}" = alerts ] && [ -n "$DISCORD_NOTIFY_CHANNEL" ] && _subscribe "$task" "$DISCORD_NOTIFY_CHANNEL"
+  return 0
+}
+
+_subscribe() {
   local extra=()
   [ -n "$DISCORD_GUILD_ID" ] && extra=(--guild-id "$DISCORD_GUILD_ID")
-  run kanban notify-subscribe "$1" --platform discord --chat-id "$DISCORD_NOTIFY_CHANNEL" \
-    --chat-type channel --delivery-mode notify ${extra[@]+"${extra[@]}"} >/dev/null || \
-    warn "could not subscribe $1 to Discord notifications"
+  local out
+  out=$(run kanban notify-subscribe "$1" --platform discord --chat-id "$2" \
+    --chat-type channel --delivery-mode notify ${extra[@]+"${extra[@]}"} </dev/null) \
+    || { warn "could not subscribe $1 to Discord channel $2"; return 0; }
+  [ "$DRY_RUN" = "1" ] && printf '%s\n' "$out"
+  return 0
 }
 
 # --- Interactive prompts and settings files (used by the Discord scripts) ---

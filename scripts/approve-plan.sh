@@ -85,7 +85,10 @@ Plan: $plan_id. Shared memory: .ecc/memory/ in the worktree.")
     --idempotency-key "$key:qa" \
     --body "Verify branch $branch end to end. Acceptance criteria: $scope")
 
-  for t in "$build" "$sec" "$qa"; do notify_discord "$t"; done
+  notify_discord "$build" "$role"
+  notify_discord "$build" reviewer      # the Reviewer finishes the build card
+  notify_discord "$sec" security
+  notify_discord "$qa" qa alerts        # "ready to merge" also goes to #factory-alerts
   log "[$role] $title: build $build -> security $sec -> qa $qa"
   prev_build="$build"
 done < "$plan_file"

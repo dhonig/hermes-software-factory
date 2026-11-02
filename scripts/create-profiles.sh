@@ -45,3 +45,11 @@ for role in reviewer security qa; do
   log "Removing file-editing tools from $(profile_name "$role")"
   run hermes -p "$(profile_name "$role")" tools disable --platform cli file code_execution delegation
 done
+
+# Builders write the code, so they get the strongest model you have.
+if [ -n "$BUILDER_MODEL" ]; then
+  for role in backend frontend; do
+    log "Setting $(profile_name "$role") model to $BUILDER_MODEL"
+    run hermes -p "$(profile_name "$role")" config set model.default "$BUILDER_MODEL" >/dev/null
+  done
+fi
