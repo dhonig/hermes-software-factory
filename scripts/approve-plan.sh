@@ -23,9 +23,16 @@ if [ ! -f "$plan_file" ]; then
   json=$(kanban show "$plan_id" --json) || die "No task $plan_id on board $BOARD."
   status=$(printf '%s' "$json" | jq -r '.task.status')
   [ "$status" = done ] || die "Planner task $plan_id is '$status', not done. Check it with: ./factory.sh status"
-  printf '%s' "$json" | jq -r '.latest_summary // .task.result // ""' \
-    | grep -E '^[[:space:]]*-[[:space:]]*\[(backend|frontend)\]' > "$plan_file" \
-    || die "Couldn't find plan lines ('- [backend] title :: details') in the Planner's summary."
+  plan_re='^[[:space:]]*-[[:space:]]*\[(backend|frontend)\]'
+  # Prefer the completion summary. Small local models sometimes write the plan
+  # in their reply but put something else in kanban_complete, so fall back to
+  # comments and then the worker log (first copy of each line, in order).
+  log_file="$HOME/.hermes/kanban/boards/$BOARD/logs/$plan_id.log"
+  { printf '%s' "$json" | jq -r '.latest_summary // "", .task.result // ""' | grep -E "$plan_re"; } > "$plan_file" \
+    || { printf '%s' "$json" | jq -r '.comments[]?.body // ""' | grep -E "$plan_re"; } > "$plan_file" \
+    || { [ -f "$log_file" ] && grep -E "$plan_re" "$log_file" | awk '!seen[$0]++'; } > "$plan_file" \
+    || { rm -f "$plan_file"; die "Couldn't find plan lines ('- [backend] title :: details') from the Planner. Check $log_file"; }
+  sed -i '' -E 's/^[[:space:]]+//' "$plan_file"
 fi
 
 echo "Plan ($plan_file):"
