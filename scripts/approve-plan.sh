@@ -70,7 +70,9 @@ while IFS= read -r line; do
     --idempotency-key "$key:build" ${parent_args[@]+"${parent_args[@]}"} \
     --body "$scope
 
-Work in the worktree for branch $branch. When done, request review from $reviewer.
+Work in the worktree for branch $branch. Commit your changes on that branch.
+When done, call kanban_request_review with reviewer="$reviewer". Always pass the
+reviewer; without it you would be asked to review your own work.
 Plan: $plan_id. Shared memory: .ecc/memory/ in the worktree.")
 
   sec=$(create_task "Security check: $title" --assignee "$(profile_name security)" \

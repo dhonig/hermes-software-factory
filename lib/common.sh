@@ -171,3 +171,18 @@ routes_json() {
   hermes config get gateway.profile_routes --json 2>/dev/null \
     | jq -c 'if type=="array" then . else [] end' 2>/dev/null || echo "[]"
 }
+
+# Builders sometimes request review without naming the reviewer, and Hermes then
+# hands the review back to the builder, which loops. Send those to the Reviewer.
+route_reviews() {
+  local reviewer ids id
+  reviewer=$(profile_name reviewer)
+  ids=$(kanban list --status review --json 2>/dev/null | jq -r --arg b "$(profile_name backend)" --arg f "$(profile_name frontend)" \
+    '(if type=="array" then . else .tasks end)[] | select(.assignee==$b or .assignee==$f) | .id' 2>/dev/null || true)
+  for id in $ids; do
+    log "Task $id is in review with its builder; routing it to $reviewer"
+    run kanban request-review "$id" --reviewer "$reviewer" --force \
+      --summary "Rerouted to $reviewer: review was requested without a reviewer." >/dev/null </dev/null \
+      || warn "could not reroute $id"
+  done
+}

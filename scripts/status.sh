@@ -3,6 +3,7 @@
 . "$(dirname "$0")/../lib/common.sh"
 
 board_exists || die "Board '$BOARD' doesn't exist yet. Run ./factory.sh init"
+route_reviews
 
 section() {
   local out
