@@ -15,7 +15,13 @@ allowed="$DISCORD_NOTIFY_CHANNEL"
 for role in $ROLES; do
   var="DISCORD_CHANNEL_$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
   current=$(eval "printf '%s' \"\${$var:-}\"")
-  ask_ids id "#$role channel ID" required "$current"
+  while :; do
+    ask_ids id "#$role channel ID" required "$current"
+    case ",$allowed," in
+      *",$id,"*) warn "That ID is already used for another channel. Copy the ID of #$role itself."; current="" ;;
+      *) break ;;
+    esac
+  done
   conf_set "$var" "$id"
   allowed="$allowed,$id"
   routes=$(printf '%s' "$routes" | jq -c --arg n "$(profile_name "$role")" --arg g "$DISCORD_GUILD_ID" --arg c "$id" \
