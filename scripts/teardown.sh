@@ -31,6 +31,13 @@ if grep -qx routes "$STATE_DIR/discord" 2>/dev/null; then
   run hermes config set gateway.profile_routes "$routes" >/dev/null
 fi
 
+if grep -qx factory-guard "$STATE_DIR/plugins" 2>/dev/null; then
+  log "Disabling and removing the factory-guard plugin"
+  enabled=$(hermes config get plugins.enabled --json 2>/dev/null | jq -c '[.[]? | select(. != "factory-guard")]' 2>/dev/null || echo "[]")
+  run hermes config set plugins.enabled "$enabled" >/dev/null
+  run rm -rf "$HOME/.hermes/plugins/factory-guard"
+fi
+
 if [ -f "$STATE_DIR/config-before.txt" ]; then
   while IFS= read -r kv; do
     k=${kv%%=*}; v=${kv#*=}
@@ -43,6 +50,6 @@ if [ -f "$STATE_DIR/config-before.txt" ]; then
 fi
 
 if [ "$DRY_RUN" != 1 ]; then
-  rm -f "$STATE_DIR/boards" "$STATE_DIR/profiles" "$STATE_DIR/config-before.txt"
+  rm -f "$STATE_DIR/boards" "$STATE_DIR/profiles" "$STATE_DIR/plugins" "$STATE_DIR/config-before.txt"
 fi
 log "Teardown complete."

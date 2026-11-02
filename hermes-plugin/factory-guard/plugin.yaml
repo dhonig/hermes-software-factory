@@ -1,0 +1,3 @@
+name: factory-guard
+version: "1.0"
+description: Software factory guardrails - commits builder work before review and keeps reviews away from builders.

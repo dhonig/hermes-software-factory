@@ -38,3 +38,10 @@ done
 # CLI toolsets, so removing these there removes them from kanban runs too.
 log "Removing code-editing tools from $(profile_name planner)"
 run hermes -p "$(profile_name planner)" tools disable --platform cli terminal file code_execution delegation
+
+# Reviewer, Security and QA judge the work; they don't change it. They keep the
+# terminal to read diffs and run tests, but lose the file-editing tools.
+for role in reviewer security qa; do
+  log "Removing file-editing tools from $(profile_name "$role")"
+  run hermes -p "$(profile_name "$role")" tools disable --platform cli file code_execution delegation
+done

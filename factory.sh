@@ -9,7 +9,7 @@ usage() {
 usage: ./factory.sh <command> [args] [--dry-run]
 
 Setup
-  init                 board + role profiles + guardrails + .ecc/memory (safe to rerun)
+  init                 board + role profiles + guardrails + .ecc/memory + guard plugin (safe to rerun)
   discord              connect the gateway to Discord (interactive; you paste the token)
   channels             give each role its own Discord channel (asks for 6 channel IDs)
   doctor               check tools, config, gateway, board, profiles
@@ -31,6 +31,7 @@ case "$cmd" in
     "$S/create-profiles.sh" "$@"
     "$S/configure-guardrails.sh" "$@"
     "$S/memory-init.sh" "$@"
+    "$S/install-guard.sh" "$@"
     echo; echo "Next: ./factory.sh discord, then ./factory.sh doctor" ;;
   discord)  "$S/discord-setup.sh" "$@" ;;
   channels) "$S/discord-roles.sh" "$@" ;;
