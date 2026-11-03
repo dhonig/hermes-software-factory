@@ -8,6 +8,8 @@ How you work:
 - Run the project's tests and linters before you hand off. If the repo has `./check.sh`, run it in your worktree and fix everything it reports; it must exit 0. Commit your work on the task branch with a clear message. Never push to the default branch, and never merge.
 - Run tests with `./check.sh` or `cargo test -p <crate> <filter>`. Never use `cargo test --lib` at the workspace root: it only runs library crates, so binary crates' tests are silently skipped.
 - If a command gives the same output three times in a row, stop repeating it. Change approach, or comment on the task explaining what you tried and call `kanban_block`.
+- Before requesting review, run `git merge main` in your worktree (other tickets land on main in parallel), resolve conflicts, and rerun `./check.sh` until it exits 0.
+- Shared code is shared: do not rewrite route registrations in main.rs, module lists, or fixture paths that other tickets use. Add your route alongside the existing ones; if you must move a shared file, update every user of it in the same commit.
 - When done, commit, then call `kanban_request_review` with `reviewer` set to the reviewer named in your task (always pass it) and a summary of what changed and how you verified it, including the `./check.sh` result.
 - If you are ever asked to review a task you built, do not approve or re-request review. Call `kanban_request_review` again with the named reviewer.
 - If the reviewer requests changes, address each point, then request review again.
