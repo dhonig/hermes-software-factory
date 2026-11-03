@@ -37,6 +37,18 @@ log "Building hermes-board-backend in $wt"
 bin="$(cd "$wt" && cargo metadata -q --format-version 1 --no-deps | jq -r .target_directory)/debug/hermes-board-backend"
 [ -x "$bin" ] || fail "binary not found at $bin"
 
+frontend_built=0
+if command -v trunk >/dev/null 2>&1; then
+  log "Building the frontend with trunk (crates/frontend -> crates/frontend/public)"
+  (cd "$wt/crates/frontend" && trunk build >"$STATE_DIR/smoke.$$.trunk.log" 2>&1) || {
+    tail -30 "$STATE_DIR/smoke.$$.trunk.log"; rm -f "$STATE_DIR/smoke.$$.trunk.log"; fail "trunk build failed"; }
+  rm -f "$STATE_DIR/smoke.$$.trunk.log"
+  [ -f "$wt/crates/frontend/public/index.html" ] || fail "trunk build produced no crates/frontend/public/index.html"
+  frontend_built=1
+else
+  warn "trunk is not installed; skipping the frontend build and GET / checks"
+fi
+
 log "Starting server on $base (HERMES_HOME=$home)"
 # Run from the worktree root: static files are served from crates/frontend/public.
 (cd "$wt" && HERMES_HOME="$home" BIND="127.0.0.1:$port" exec "$bin") > "$server_log" 2>&1 &
@@ -61,12 +73,22 @@ n=$(jq 'if type == "array" then length else (.boards // []) | length end' "$body
 [ "$n" -ge 1 ] || fail "GET /api/boards returned 0 boards (expected the boards under $home/kanban/boards)"
 pass "GET /api/boards 200, $n board(s): $(jq -c '[.. | .slug? // empty]' "$body")"
 
-if [ -f "$wt/crates/frontend/public/index.html" ]; then
+if [ "$frontend_built" = 1 ]; then
   code=$(curl -s -o "$body" -w '%{http_code}' "$base/")
   [ "$code" = 200 ] && grep -qi '<html' "$body" || fail "GET / returned $code without index.html"
   pass "GET / 200 index.html"
-else
-  warn "frontend not built (no crates/frontend/public/index.html); skipped GET /"
+  # Every .js/.wasm/.css asset index.html references must be served.
+  assets=$(grep -oE '(href|src)="/?[^"]+\.(js|wasm|css)"' "$body" | sed -E 's/^(href|src)="//; s/"$//' | sort -u)
+  [ -n "$assets" ] || fail "index.html references no .js/.wasm assets"
+  for a in $assets; do
+    case "$a" in /*) ;; *) a="/$a" ;; esac
+    code=$(curl -s -o /dev/null -w '%{http_code}' "$base$a")
+    [ "$code" = 200 ] || fail "GET $a returned $code"
+    pass "GET $a 200"
+  done
+  code=$(curl -s -o "$body" -w '%{http_code}' "$base/boards/software-factory")
+  [ "$code" = 200 ] && grep -qi '<html' "$body" || fail "client route /boards/software-factory returned $code, expected the index.html fallback"
+  pass "GET /boards/software-factory 200 (SPA fallback)"
 fi
 
 rm -f "$server_log"
