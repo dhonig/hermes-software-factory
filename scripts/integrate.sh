@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Hand a QA-passed branch that doesn't merge cleanly into main to the Planner.
-# The Planner gets its own worktree on a fresh integrate/<slug> branch cut from
+# Hand a QA-passed branch that doesn't merge cleanly into main to the Integrator.
+# The Integrator gets its own worktree on a fresh integrate/<slug> branch cut from
 # main, merges the build branch into it, resolves conflicts and wires up
 # routes/modules/fixtures until ./check.sh passes. A person merges the result.
 #
@@ -45,10 +45,10 @@ $int_branch into main. If a conflict needs a design decision, call kanban_block
 with the question instead of guessing.
 EOF
 
-id=$(create_task "Integrate: $title" --assignee "$(profile_name planner)" \
+id=$(create_task "Integrate: $title" --assignee "$(profile_name integrator)" \
   --workspace "worktree:$wt" --branch "$int_branch" --created-by factory \
   --idempotency-key "integrate:$build_id" --body-file "$body_file")
 rm -f "$body_file"
 
-notify_discord "$id" planner alerts
+notify_discord "$id" integrator alerts
 log "Integration task $id: $branch -> $int_branch (worktree $wt)"

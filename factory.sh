@@ -18,7 +18,7 @@ Work
   feature "<goal>"     ask the Planner for a plan [--details "..."]
   approve <task-id>    review the plan and create build -> security -> QA tasks [--yes]
   integrate <build-id> ["what failed"]
-                       hand a branch that won't merge cleanly to the Planner
+                       hand a branch that won't merge cleanly to the Integrator
   status               what's blocked, in review, running, ready
 
 Cleanup

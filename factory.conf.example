@@ -19,6 +19,8 @@ FAILURE_LIMIT=2                 # consecutive failures before a task is blocked
 # Model for the Backend and Frontend builders (empty = same as default profile).
 # Must be a model your default provider serves.
 BUILDER_MODEL="Qwen3-Coder-Next-5bit"
+# Model for the Integrator (resolves merge conflicts). Empty = BUILDER_MODEL.
+INTEGRATOR_MODEL=""
 
 # Discord channel IDs (written here by scripts/discord-setup.sh).
 DISCORD_NOTIFY_CHANNEL=""

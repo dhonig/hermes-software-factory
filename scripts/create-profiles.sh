@@ -12,6 +12,7 @@ describe() {
     reviewer) echo "Independent code reviewer. Approves or requests changes with concrete reasons." ;;
     security) echo "Independent security check of a branch's diff: injection, secrets, deps, unsafe defaults." ;;
     qa)       echo "Runs tests and exercises the feature end to end before a human merges." ;;
+    integrator) echo "Resolves merge conflicts for branches that do not merge cleanly into main. No features." ;;
   esac
 }
 
@@ -34,12 +35,10 @@ for role in $ROLES; do
   fi
 done
 
-# The Planner plans and, in integration tasks, resolves merge conflicts, so it
-# keeps the terminal and file tools. Toolsets are per profile and platform, not
-# per task, so its role prompt limits code edits to integration tasks.
-log "Setting $(profile_name planner) tools (terminal+file for integration tasks)"
-run hermes -p "$(profile_name planner)" tools disable --platform cli code_execution delegation
-run hermes -p "$(profile_name planner)" tools enable --platform cli terminal file
+# The Planner plans; it never touches code. Workers run with the profile's
+# CLI toolsets, so removing these there removes them from kanban runs too.
+log "Removing code-editing tools from $(profile_name planner)"
+run hermes -p "$(profile_name planner)" tools disable --platform cli terminal file code_execution delegation
 
 # Reviewer, Security and QA judge the work; they don't change it. They keep the
 # terminal to read diffs and run tests, but lose the file-editing tools.
@@ -54,4 +53,14 @@ if [ -n "$BUILDER_MODEL" ]; then
     log "Setting $(profile_name "$role") model to $BUILDER_MODEL"
     run hermes -p "$(profile_name "$role")" config set model.default "$BUILDER_MODEL" >/dev/null
   done
+fi
+
+# The Integrator edits Rust to resolve merges, so it also gets the coder model
+# (INTEGRATOR_MODEL, defaulting to BUILDER_MODEL), and no sub-agents.
+log "Removing delegation tools from $(profile_name integrator)"
+run hermes -p "$(profile_name integrator)" tools disable --platform cli code_execution delegation
+integrator_model="${INTEGRATOR_MODEL:-$BUILDER_MODEL}"
+if [ -n "$integrator_model" ]; then
+  log "Setting $(profile_name integrator) model to $integrator_model"
+  run hermes -p "$(profile_name integrator)" config set model.default "$integrator_model" >/dev/null
 fi

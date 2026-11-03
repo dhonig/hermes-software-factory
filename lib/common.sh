@@ -11,12 +11,13 @@ mkdir -p "$STATE_DIR"
 BOARD="software-factory"
 BOARD_NAME="Software Factory"
 PROFILE_PREFIX="sf-"
-ROLES="planner backend frontend reviewer security qa"
+ROLES="planner backend frontend reviewer security qa integrator"
 TARGET_REPO=""
 MAX_IN_PROGRESS=2
 MAX_IN_PROGRESS_PER_PROFILE=1
 FAILURE_LIMIT=2
 BUILDER_MODEL=""
+INTEGRATOR_MODEL=""
 DISCORD_NOTIFY_CHANNEL=""
 DISCORD_GUILD_ID=""
 
