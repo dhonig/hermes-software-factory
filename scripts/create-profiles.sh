@@ -34,10 +34,12 @@ for role in $ROLES; do
   fi
 done
 
-# The Planner plans; it never touches code. Workers run with the profile's
-# CLI toolsets, so removing these there removes them from kanban runs too.
-log "Removing code-editing tools from $(profile_name planner)"
-run hermes -p "$(profile_name planner)" tools disable --platform cli terminal file code_execution delegation
+# The Planner plans and, in integration tasks, resolves merge conflicts, so it
+# keeps the terminal and file tools. Toolsets are per profile and platform, not
+# per task, so its role prompt limits code edits to integration tasks.
+log "Setting $(profile_name planner) tools (terminal+file for integration tasks)"
+run hermes -p "$(profile_name planner)" tools disable --platform cli code_execution delegation
+run hermes -p "$(profile_name planner)" tools enable --platform cli terminal file
 
 # Reviewer, Security and QA judge the work; they don't change it. They keep the
 # terminal to read diffs and run tests, but lose the file-editing tools.

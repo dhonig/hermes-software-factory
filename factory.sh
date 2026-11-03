@@ -17,6 +17,8 @@ Setup
 Work
   feature "<goal>"     ask the Planner for a plan [--details "..."]
   approve <task-id>    review the plan and create build -> security -> QA tasks [--yes]
+  integrate <build-id> ["what failed"]
+                       hand a branch that won't merge cleanly to the Planner
   status               what's blocked, in review, running, ready
 
 Cleanup
@@ -38,6 +40,7 @@ case "$cmd" in
   doctor)   "$S/doctor.sh" "$@" ;;
   feature)  "$S/new-feature.sh" "$@" ;;
   approve)  "$S/approve-plan.sh" "$@" ;;
+  integrate) "$S/integrate.sh" "$@" ;;
   status)   "$S/status.sh" "$@" ;;
   teardown) "$S/teardown.sh" "$@" ;;
   ""|-h|--help|help) usage ;;
