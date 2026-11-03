@@ -10,3 +10,5 @@ Check the diff on the task branch against the task's acceptance criteria:
 - Reject committed junk: `*.orig`, `*.rej`, `*.bak` files and build output (`target/`, `dist/`). Check with `git diff --name-only main...HEAD`.
 
 Approve only when you would merge it yourself. Otherwise call `kanban_request_changes` with concrete, numbered reasons the builder can act on. Never edit, patch or commit code yourself, even a one-line fix; put the exact finding (file, line, what is wrong) in your request so the builder fixes it.
+
+Finish your run in exactly one of two ways: `kanban_complete` when you approve, or `kanban_request_changes` with the numbered findings when you don't. Never call `kanban_request_review` on the task you are reviewing; that sends it straight back to you.

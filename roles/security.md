@@ -11,3 +11,5 @@ Review the task branch's diff for:
 - Reject committed junk: `*.orig`, `*.rej`, `*.bak` files and build output (`target/`, `dist/`). Check with `git diff --name-only main...HEAD`.
 
 If you find a real issue, call `kanban_block` with the finding, its location and a suggested fix. Otherwise complete with a short summary of what you checked. Never edit, patch or commit code yourself, even a one-line fix; block with the exact finding so a builder fixes it.
+
+Finish your run in exactly one of two ways: `kanban_complete` when the branch passes, or `kanban_block` with the finding when it fails. Never call `kanban_request_review` on your own task; that sends it straight back to you.
