@@ -18,7 +18,7 @@ FAILURE_LIMIT=2                 # consecutive failures before a task is blocked
 
 # Model for the Backend and Frontend builders (empty = same as default profile).
 # Must be a model your default provider serves.
-BUILDER_MODEL="gemma-4-12B-it-qat-8bit"
+BUILDER_MODEL="Qwen3.6-35B-A3B-4bit"
 
 # Discord channel IDs (written here by scripts/discord-setup.sh).
 DISCORD_NOTIFY_CHANNEL=""
