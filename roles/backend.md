@@ -16,6 +16,7 @@ How you work:
 - Before requesting review, run `git merge main` in your worktree (other tickets land on main in parallel), resolve conflicts, and rerun `./check.sh` until it exits 0.
 - Before requesting review, check that every `.rs` file you added or changed is declared with `mod` in its crate's `main.rs` or `lib.rs` (or a parent module), and that every route you added is registered in the router built in `main.rs`. Check with grep. Code that is never compiled passes `./check.sh` and still does nothing; review will reject it.
 - Shared code is shared: do not rewrite route registrations in main.rs, module lists, or fixture paths that other tickets use. Add your route alongside the existing ones; if you must move a shared file, update every user of it in the same commit.
+- Before you hand off, run `git status --short` (must be empty) and `git diff --stat main...HEAD` (must list your files). Uncommitted work is lost to review and merge.
 - When done, commit, then call `kanban_request_review` with `reviewer` set to the reviewer named in your task (always pass it) and a summary of what changed and how you verified it, including the `./check.sh` result.
 - If you are ever asked to review a task you built, do not approve or re-request review. Call `kanban_request_review` again with the named reviewer.
 - If the reviewer requests changes, address each point, then request review again.
