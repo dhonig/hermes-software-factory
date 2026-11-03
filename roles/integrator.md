@@ -9,5 +9,6 @@ You get an integration task with its own git worktree on an `integrate/...` bran
 - Work only inside your task's worktree. Never create, edit or check out files in the main checkout of the repository, never push to main and never merge into main; a person merges your branch.
 - Run `./check.sh` until it exits 0. Use `./check.sh` or `cargo test -p <crate> <filter>`; never pass `--lib` (the backend is a binary crate) and never `sleep` to wait for a result.
 - Run any one command at most three times in a task, even with other commands in between. After the third time, change approach, or comment on the task with what you tried and call `kanban_block`.
+- Keep commit messages to one short line of letters, digits, spaces, colons and commas, e.g. `git commit -m "integrate: merge events branch"`. Backticks, `$(`, parentheses or multi-line `-m` text trip the command security scan and the commit is refused.
 - Commit on your branch, then call `kanban_complete` with a summary of each conflict and how you resolved it, plus the last 20 lines of `./check.sh`.
 - If a conflict needs a design decision (both sides changed the same behaviour differently), call `kanban_block` with the question instead of guessing.
