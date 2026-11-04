@@ -89,6 +89,38 @@ if [ "$frontend_built" = 1 ]; then
   code=$(curl -s -o "$body" -w '%{http_code}' "$base/boards/software-factory")
   [ "$code" = 200 ] && grep -qi '<html' "$body" || fail "client route /boards/software-factory returned $code, expected the index.html fallback"
   pass "GET /boards/software-factory 200 (SPA fallback)"
+
+  # Render the app in a headless browser and check what a user would see: the
+  # boards screen must list the boards /api/boards returns, and no page may show
+  # an error. Catches API/client mismatches that compile and pass every test.
+  chrome="${SMOKE_CHROME:-}"
+  if [ -z "$chrome" ]; then
+    chrome=$(ls -d "$HOME"/Library/Caches/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell 2>/dev/null | sort -V | tail -1)
+  fi
+  [ -z "$chrome" ] && [ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ] \
+    && chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  if [ -n "$chrome" ] && [ -x "$chrome" ]; then
+    render() { "$chrome" --headless --disable-gpu --no-sandbox --no-first-run --virtual-time-budget=8000 \
+      --dump-dom "$base$1" 2>/dev/null | perl -0pe 's/<script.*?<\/script>//gs; s/<style.*?<\/style>//gs; s/<[^>]*>/ /g' | tr -s ' \n' ' '; }
+    names=$(curl -s "$base/api/boards" | jq -r '(if type=="array" then . else .boards end)[].name')
+    text=$(render /)
+    printf '%s' "$text" | grep -q 'Error' && fail "boards screen (/) renders an error: $(printf '%s' "$text" | grep -o 'Error[^.]*' | head -1)"
+    if printf '%s' "$text" | grep -q 'TODO'; then
+      warn "boards screen (/) is still a placeholder: $(printf '%s' "$text" | head -c 120)"
+    else
+      printf '%s\n' "$names" | while IFS= read -r n; do
+        [ -z "$n" ] && continue
+        printf '%s' "$text" | grep -qF "$n" || { echo "missing board '$n' on /"; exit 1; }
+      done || fail "boards screen (/) does not list every board from /api/boards. Rendered text: $(printf '%s' "$text" | head -c 300)"
+      pass "rendered / lists: $(printf '%s' "$names" | tr '\n' ',' | sed 's/,$//')"
+    fi
+    slug=$(curl -s "$base/api/boards" | jq -r '(if type=="array" then . else .boards end)[0].slug')
+    text=$(render "/boards/$slug")
+    printf '%s' "$text" | grep -q 'Error' && fail "board screen (/boards/$slug) renders an error: $(printf '%s' "$text" | grep -o 'Error[^.]*' | head -1)"
+    pass "rendered /boards/$slug without errors"
+  else
+    warn "no headless Chrome found (set SMOKE_CHROME); skipped the rendered-page checks"
+  fi
 fi
 
 rm -f "$server_log"
