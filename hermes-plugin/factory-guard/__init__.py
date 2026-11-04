@@ -14,6 +14,10 @@ enforced here instead of trusted to the prompt:
 4. The backend and frontend builders cannot call kanban_complete: they must hand
    off with kanban_request_review, so review, security and QA always run. The
    Integrator is exempt; its tasks complete after ./check.sh and a person merges.
+5. No hand-off without a real ./check.sh pass. Builders and the Integrator can't
+   request review, and the Reviewer, Security, QA and Integrator can't complete,
+   unless `factory.sh check` recorded a pass for the worktree's current HEAD.
+   Models kept reporting passes for code that had never compiled.
 
 Only acts on the factory board and its profiles (see FACTORY_* below).
 """
@@ -32,6 +36,7 @@ PREFIX = os.environ.get("FACTORY_PROFILE_PREFIX", "sf-")
 REVIEWER = PREFIX + "reviewer"
 BUILDERS = {PREFIX + "backend", PREFIX + "frontend"}
 CHECKERS = {PREFIX + "reviewer", PREFIX + "security", PREFIX + "qa"}
+INTEGRATOR = PREFIX + "integrator"
 BUILD_DIRS = ("target", "node_modules", "dist", "build", ".venv", "__pycache__", ".idea")
 
 
@@ -103,8 +108,43 @@ def _current_profile() -> str:
     return home.name if home.parent.name == "profiles" else ""
 
 
+def _factory_root() -> Path | None:
+    # Written by scripts/install-guard.sh next to this file.
+    try:
+        return Path(Path(__file__).with_name("factory_root").read_text().strip())
+    except OSError:
+        return None
+
+
+def _check_gate() -> dict | None:
+    """Block unless ./check.sh passed on the task worktree's HEAD; None to allow."""
+    workspace = os.environ.get("HERMES_KANBAN_WORKSPACE", "")
+    root = _factory_root()
+    if not workspace or root is None or not (Path(workspace) / "check.sh").exists():
+        return None  # not a factory build worktree, nothing to gate
+    try:
+        res = _git(workspace, "rev-parse", "HEAD")
+    except Exception as exc:  # never wedge a worker over a guard failure
+        log.warning("factory-guard: rev-parse failed in %s: %s", workspace, exc)
+        return None
+    sha = res.stdout.strip()
+    if res.returncode != 0 or not sha or (root / ".factory" / "check-pass" / sha).exists():
+        return None
+    return {
+        "action": "block",
+        "message": (
+            f"check.sh has not passed on {sha}; run it in the foreground: "
+            f"{root}/factory.sh check {workspace}"
+        ),
+    }
+
+
 def _on_pre_tool_call(tool_name=None, **_kw):
     profile = _current_profile()
+    if (tool_name == "kanban_request_review" and profile in BUILDERS | {INTEGRATOR}) or (
+        tool_name == "kanban_complete" and profile in CHECKERS | {INTEGRATOR}
+    ):
+        return _check_gate()
     if tool_name == "kanban_complete" and profile in BUILDERS:
         return {
             "action": "block",

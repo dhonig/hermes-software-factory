@@ -20,6 +20,7 @@ Work
   integrate <build-id> ["what failed"]
                        hand a branch that won't merge cleanly to the Integrator
   smoke <worktree>     build the backend, start it on a free port and curl its endpoints
+  check <worktree>     run ./check.sh and record a pass for HEAD (hand-offs need this)
   status               what's blocked, in review, running, ready
 
 Cleanup
@@ -43,6 +44,7 @@ case "$cmd" in
   approve)  "$S/approve-plan.sh" "$@" ;;
   integrate) "$S/integrate.sh" "$@" ;;
   smoke)    "$S/smoke.sh" "$@" ;;
+  check)    "$S/check-gate.sh" "$@" ;;
   status)   "$S/status.sh" "$@" ;;
   teardown) "$S/teardown.sh" "$@" ;;
   ""|-h|--help|help) usage ;;
