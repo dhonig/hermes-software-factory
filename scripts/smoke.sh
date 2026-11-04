@@ -118,6 +118,15 @@ if [ "$frontend_built" = 1 ]; then
     text=$(render "/boards/$slug")
     printf '%s' "$text" | grep -q 'Error' && fail "board screen (/boards/$slug) renders an error: $(printf '%s' "$text" | grep -o 'Error[^.]*' | head -1)"
     pass "rendered /boards/$slug without errors"
+    # Screenshots for a person to review: .factory/screenshots/<worktree>-{root,board}.png
+    shots="$STATE_DIR/screenshots"; mkdir -p "$shots"
+    name=$(basename "$wt")
+    for pair in "root:/" "board:/boards/$slug"; do
+      out="$shots/$name-${pair%%:*}.png"
+      "$chrome" --headless --disable-gpu --no-sandbox --no-first-run --hide-scrollbars --virtual-time-budget=8000 \
+        --window-size=1280,900 --screenshot="$out" "$base${pair#*:}" >/dev/null 2>&1 \
+        && pass "screenshot $out" || warn "screenshot of ${pair#*:} failed"
+    done
   else
     warn "no headless Chrome found (set SMOKE_CHROME); skipped the rendered-page checks"
   fi

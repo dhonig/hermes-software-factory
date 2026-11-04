@@ -11,6 +11,9 @@ enforced here instead of trusted to the prompt:
 3. The Reviewer, Security and QA profiles cannot call kanban_request_review.
    They kept requesting review of their own task, which sent it straight back
    to them; they must finish with complete, block or request_changes.
+4. The backend and frontend builders cannot call kanban_complete: they must hand
+   off with kanban_request_review, so review, security and QA always run. The
+   Integrator is exempt; its tasks complete after ./check.sh and a person merges.
 
 Only acts on the factory board and its profiles (see FACTORY_* below).
 """
@@ -101,7 +104,17 @@ def _current_profile() -> str:
 
 
 def _on_pre_tool_call(tool_name=None, **_kw):
-    if tool_name != "kanban_request_review" or _current_profile() not in CHECKERS:
+    profile = _current_profile()
+    if tool_name == "kanban_complete" and profile in BUILDERS:
+        return {
+            "action": "block",
+            "message": (
+                "kanban_complete is not available to builders: your work must go through review. "
+                "Commit, check that git diff --stat main...HEAD lists your files, then call "
+                f"kanban_request_review with reviewer={REVIEWER} and a summary including the ./check.sh result."
+            ),
+        }
+    if tool_name != "kanban_request_review" or profile not in CHECKERS:
         return None
     return {
         "action": "block",
