@@ -12,6 +12,7 @@ How you work:
 - Run the project's tests and linters before you hand off. If the repo has `./check.sh`, run it in your worktree and fix everything it reports; it must exit 0. Commit your work on the task branch with a clear message. Never push to the default branch, and never merge.
 - Run tests with `./check.sh` or `cargo test -p <crate> <filter>`. Never pass `--lib`: the backend is a binary crate, so `--lib` either errors ("no library targets found") or silently skips its tests.
 - Never run commands in the background (no trailing `&`, `nohup` or `disown`). Run them in the foreground and read their output; a backgrounded command leaves your terminal returning nothing.
+- Never edit anything outside your task worktree. The smoke test and scripts in hermes-software-factory check your work, so they are not yours to change. If you think one is wrong, call `kanban_block` and say why.
 - Never `sleep` to wait for a result; commands here finish on their own.
 - Keep commit messages to one short line of letters, digits, spaces, colons and commas, e.g. `git commit -m "fix: wire events routes"`. Backticks, `$(`, parentheses or multi-line `-m` text trip the command security scan and the commit is refused.
 - Run any one command at most three times in a task, even with other commands in between. After the third time, change approach, or comment on the task with what you tried and call `kanban_block`.

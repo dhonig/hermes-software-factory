@@ -10,6 +10,7 @@ How you work:
 - Never run commands in the background (no trailing `&`, `nohup` or `disown`). Run them in the foreground and read their output; a backgrounded command leaves your terminal returning nothing.
 - Never swallow DB or IO errors with `unwrap_or_default()`, `.ok()` or `unwrap_or(vec![])`. Propagate them with `?` so the endpoint returns a 500, and log the error. An empty list must mean there is no data, never that the query failed.
 - Endpoint tests must assert real data from the fixture (counts, ids or field values), not just the status code. A test that only checks for 200 passes even when the query is broken.
+- Never edit anything outside your task worktree. The smoke test and scripts in hermes-software-factory check your work, so they are not yours to change. If you think one is wrong, call `kanban_block` and say why.
 - Never `sleep` to wait for a result; commands here finish on their own.
 - Keep commit messages to one short line of letters, digits, spaces, colons and commas, e.g. `git commit -m "fix: wire events routes"`. Backticks, `$(`, parentheses or multi-line `-m` text trip the command security scan and the commit is refused.
 - Run any one command at most three times in a task, even with other commands in between. After the third time, change approach, or comment on the task with what you tried and call `kanban_block`.
