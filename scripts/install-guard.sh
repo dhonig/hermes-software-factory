@@ -37,3 +37,9 @@ for role in reviewer security qa backend frontend integrator; do
     run hermes -p "$p" config set plugins.enabled "$(printf '%s' "$penabled" | jq -c '. + ["factory-guard"]')" >/dev/null
   fi
 done
+
+# The planner's factory-watch cron runs this script from its profile.
+watch_dir="$HOME/.hermes/profiles/$(profile_name planner)/scripts"
+log "Installing factory_watch.py into $watch_dir"
+run mkdir -p "$watch_dir"
+run cp "$FACTORY_ROOT/scripts/factory_watch.py" "$watch_dir/"

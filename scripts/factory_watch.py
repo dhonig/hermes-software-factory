@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+# Factory watchdog for sf-planner's cron monitor. Prints one stable line per problem
+# (no timestamps, so unchanged problems don't re-trigger the agent), or "OK".
+#
+# Installed to ~/.hermes/profiles/sf-planner/scripts/ by scripts/install-guard.sh.
+import json, os, re, sqlite3, subprocess, time
+
+BOARD = "software-factory"
+LOGS = os.path.expanduser(f"~/.hermes/kanban/boards/{BOARD}/logs")
+DB = os.environ.get("FACTORY_WATCH_DB") or os.path.expanduser(f"~/.hermes/kanban/boards/{BOARD}/kanban.db")
+REPO = os.environ.get("FACTORY_TARGET_REPO") or os.path.expanduser("~/IdeaProjects/hermes-board")
+STALE_SECS = 20 * 60
+BLOCKED_LONG_SECS = 30 * 60
+
+
+def kanban(*args):
+    return subprocess.run(["hermes", "kanban", "--board", BOARD, *args],
+                          capture_output=True, text=True, timeout=120).stdout
+
+
+def tasks(status):
+    out = kanban("list", "--status", status, "--json")
+    try:
+        data = json.loads(out)
+    except ValueError:
+        return []
+    return data if isinstance(data, list) else data.get("tasks", [])
+
+
+def git(*args, cwd=REPO):
+    return subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True, timeout=30)
+
+
+def task_branch(branch, workspace):
+    """A task's branch; tasks on a dir: workspace only record the worktree path."""
+    if branch:
+        return branch
+    if workspace and os.path.isdir(workspace):
+        name = git("rev-parse", "--abbrev-ref", "HEAD", cwd=workspace).stdout.strip()
+        return name if name not in ("", "HEAD", "main") else None
+    return None
+
+
+def unmerged(branch):
+    """True when branch exists in REPO and has commits that aren't on main."""
+    res = git("rev-list", "--count", f"main..refs/heads/{branch}")
+    return res.returncode == 0 and res.stdout.strip() != "0"
+
+
+def merge_problems():
+    # mode=ro can't open a WAL database with no sidecar files, so use query_only.
+    conn = sqlite3.connect(DB, timeout=5)
+    conn.execute("PRAGMA query_only = ON")
+    rows = conn.execute(
+        "select id, title, status, assignee, branch_name, workspace_path from tasks where status != 'archived'"
+    ).fetchall()
+    found = []
+    for tid, title, *_ in conn.execute(
+        "select t.id, t.title, max(e.created_at) from tasks t join task_events e on e.task_id = t.id "
+        "where t.status = 'blocked' and e.kind = 'blocked' group by t.id having max(e.created_at) < ?",
+        (time.time() - BLOCKED_LONG_SECS,),
+    ):
+        found.append(f"BLOCKED-OVER-30-MIN {tid} {title}")
+    conn.close()
+
+    open_branches, qa_done, built = set(), {}, set()
+    for tid, title, status, assignee, branch, workspace in rows:
+        name = task_branch(branch, workspace)
+        if not name or not unmerged(name):
+            continue
+        built.add(name)
+        if status != "done":
+            open_branches.add(name)
+        elif assignee == "sf-qa":
+            qa_done[name] = tid
+    # A branch with open work on it isn't ready to merge yet.
+    for name, tid in qa_done.items():
+        if name not in open_branches:
+            found.append(f"QA-PASSED-NOT-MERGED {name} ({tid}): test-merge it into main")
+    if built and not any(r[2] in ("ready", "running") for r in rows):
+        found.append(f"IDLE no ready or running tasks, unmerged branches: {', '.join(sorted(built))}")
+    return found
+
+
+problems = merge_problems()
+for t in tasks("blocked"):
+    problems.append(f"BLOCKED {t['id']} ({t.get('assignee')}) {t.get('title')}")
+
+for t in tasks("running"):
+    tid = t["id"]
+    log = os.path.join(LOGS, f"{tid}.log")
+    if os.path.exists(log) and time.time() - os.path.getmtime(log) > STALE_SECS:
+        problems.append(f"STALLED {tid} ({t.get('assignee')}) log unchanged >20 min: {t.get('title')}")
+    if os.path.exists(log):
+        with open(log, errors="replace") as f:
+            cmds = [re.sub(r"\s+[0-9.]+s.*$", "", l).strip() for l in f if "💻 $" in l][-6:]
+        if len(cmds) == 6 and len(set(cmds)) == 1:
+            problems.append(f"LOOPING {tid} ({t.get('assignee')}) repeating: {cmds[0].split('$', 1)[-1].strip()[:80]}")
+    runs = kanban("runs", tid)
+    outcomes = [l.split()[1] for l in runs.splitlines() if re.match(r"\s+\d+\s+\S", l)]
+    if len(outcomes) >= 3 and outcomes[-3:-1] == ["crashed", "crashed"]:
+        problems.append(f"CRASHING {tid} ({t.get('assignee')}) last two runs crashed: {t.get('title')}")
+
+print("\n".join(sorted(problems)) if problems else "OK")
