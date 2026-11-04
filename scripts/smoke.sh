@@ -93,17 +93,23 @@ if [ "$frontend_built" = 1 ]; then
   # Render the app in a headless browser and check what a user would see: the
   # boards screen must list the boards /api/boards returns, and no page may show
   # an error. Catches API/client mismatches that compile and pass every test.
+  # scripts/render.js (playwright-core) waits for the app to load, not for network
+  # idle, so pages holding an EventSource open still render.
   chrome="${SMOKE_CHROME:-}"
   if [ -z "$chrome" ]; then
     chrome=$(ls -d "$HOME"/Library/Caches/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell 2>/dev/null | sort -V | tail -1)
   fi
   [ -z "$chrome" ] && [ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ] \
     && chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-  if [ -n "$chrome" ] && [ -x "$chrome" ]; then
-    render() { "$chrome" --headless --disable-gpu --no-sandbox --no-first-run --virtual-time-budget=8000 \
-      --dump-dom "$base$1" 2>/dev/null | perl -0pe 's/<script.*?<\/script>//gs; s/<style.*?<\/style>//gs; s/<[^>]*>/ /g' | tr -s ' \n' ' '; }
+  pw_path="${SMOKE_NODE_PATH:-$HOME/.hermes/hermes-agent/node_modules}"
+  if [ -n "$chrome" ] && [ -x "$chrome" ] && command -v node >/dev/null && [ -d "$pw_path/playwright-core" ]; then
+    render() { CHROME="$chrome" NODE_PATH="$pw_path" perl -e 'alarm shift; exec @ARGV' 60 \
+      node "$FACTORY_ROOT/scripts/render.js" "$base$1" ${2:+"$2"} 2>&1 || true; }
+    shots="$STATE_DIR/screenshots"; mkdir -p "$shots"
+    name=$(basename "$wt")
     names=$(curl -s "$base/api/boards" | jq -r '(if type=="array" then . else .boards end)[].name')
-    text=$(render /)
+    text=$(render / "$shots/$name-root.png")
+    [ -n "$text" ] || fail "rendering / produced no text"
     printf '%s' "$text" | grep -q 'Error' && fail "boards screen (/) renders an error: $(printf '%s' "$text" | grep -o 'Error[^.]*' | head -1)"
     if printf '%s' "$text" | grep -q 'TODO'; then
       warn "boards screen (/) is still a placeholder: $(printf '%s' "$text" | head -c 120)"
@@ -115,20 +121,30 @@ if [ "$frontend_built" = 1 ]; then
       pass "rendered / lists: $(printf '%s' "$names" | tr '\n' ',' | sed 's/,$//')"
     fi
     slug=$(curl -s "$base/api/boards" | jq -r '(if type=="array" then . else .boards end)[0].slug')
-    text=$(render "/boards/$slug")
+    text=$(render "/boards/$slug" "$shots/$name-board.png")
+    [ -n "$text" ] || fail "rendering /boards/$slug produced no text"
     printf '%s' "$text" | grep -q 'Error' && fail "board screen (/boards/$slug) renders an error: $(printf '%s' "$text" | grep -o 'Error[^.]*' | head -1)"
-    pass "rendered /boards/$slug without errors"
-    # Screenshots for a person to review: .factory/screenshots/<worktree>-{root,board}.png
-    shots="$STATE_DIR/screenshots"; mkdir -p "$shots"
-    name=$(basename "$wt")
-    for pair in "root:/" "board:/boards/$slug"; do
-      out="$shots/$name-${pair%%:*}.png"
-      "$chrome" --headless --disable-gpu --no-sandbox --no-first-run --hide-scrollbars --virtual-time-budget=8000 \
-        --window-size=1280,900 --screenshot="$out" "$base${pair#*:}" >/dev/null 2>&1 \
-        && pass "screenshot $out" || warn "screenshot of ${pair#*:} failed"
-    done
+    pass "rendered /boards/$slug without errors: $(printf '%s' "$text" | head -c 100)"
+    pass "screenshots in $shots/$name-root.png and $name-board.png"
+
+    # Live updates, against a scratch copy of the fixture board (never a real board).
+    if [ -d "$wt/fixtures/kanban/boards/fixtures" ] && command -v sqlite3 >/dev/null; then
+      live_home="$STATE_DIR/smoke.$$.home"; rm -rf "$live_home"; cp -R "$wt/fixtures" "$live_home"
+      live_port=$(python3 -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+      (cd "$wt" && HERMES_HOME="$live_home" BIND="127.0.0.1:$live_port" exec "$bin") >> "$server_log" 2>&1 &
+      live_pid=$!
+      for _ in $(seq 1 20); do curl -s -o /dev/null "http://127.0.0.1:$live_port/api/health" && break; sleep 0.5; done
+      live_out=$(CHROME="$chrome" NODE_PATH="$pw_path" perl -e 'alarm shift; exec @ARGV' 60 \
+        node "$FACTORY_ROOT/scripts/livetest.js" "http://127.0.0.1:$live_port" fixtures \
+        "$live_home/kanban/boards/fixtures/kanban.db" 2>&1 || true)
+      kill "$live_pid" 2>/dev/null || true; wait "$live_pid" 2>/dev/null || true; rm -rf "$live_home"
+      case "$live_out" in
+        ok:*) pass "live updates: ${live_out#ok: }" ;;
+        *) if [ -n "${SMOKE_REQUIRE_LIVE:-}" ]; then fail "live updates: $live_out"; else warn "live updates: $live_out"; fi ;;
+      esac
+    fi
   else
-    warn "no headless Chrome found (set SMOKE_CHROME); skipped the rendered-page checks"
+    warn "no headless Chrome, node or playwright-core found (set SMOKE_CHROME / SMOKE_NODE_PATH); skipped the rendered-page checks"
   fi
 fi
 
