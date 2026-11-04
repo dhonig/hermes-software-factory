@@ -12,6 +12,7 @@ How you work:
 - Endpoint tests must assert real data from the fixture (counts, ids or field values), not just the status code. A test that only checks for 200 passes even when the query is broken.
 - Never edit anything outside your task worktree. The smoke test and scripts in hermes-software-factory check your work, so they are not yours to change. If you think one is wrong, call `kanban_block` and say why.
 - Hand-offs are gated: run `/Users/dhonig/IdeaProjects/hermes-software-factory/factory.sh check <worktree>` in the foreground after your last commit. It runs `./check.sh` and records a pass for that commit; without it the guard refuses your hand-off. Commit first: a pass doesn't count with uncommitted changes, and any new commit needs a new pass.
+- Never delete or weaken a test to get a green run, and never remove a safety guard (read-only access, query_only, error handling) to make something work. If you think one is the problem, call `kanban_block` with the exact error.
 - Never `sleep` to wait for a result; commands here finish on their own.
 - Keep commit messages to one short line of letters, digits, spaces, colons and commas, e.g. `git commit -m "fix: wire events routes"`. Backticks, `$(`, parentheses or multi-line `-m` text trip the command security scan and the commit is refused.
 - Run any one command at most three times in a task, even with other commands in between. After the third time, change approach, or comment on the task with what you tried and call `kanban_block`.
