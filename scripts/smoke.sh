@@ -110,20 +110,20 @@ if [ "$frontend_built" = 1 ]; then
     names=$(curl -s "$base/api/boards" | jq -r '(if type=="array" then . else .boards end)[].name')
     text=$(render / "$shots/$name-root.png")
     [ -n "$text" ] || fail "rendering / produced no text"
-    printf '%s' "$text" | grep -q 'Error' && fail "boards screen (/) renders an error: $(printf '%s' "$text" | grep -o 'Error[^.]*' | head -1)"
-    if printf '%s' "$text" | grep -q 'TODO'; then
+    case "$text" in *Error*) fail "boards screen (/) renders an error: $(printf '%s' "$text" | grep -o 'Error[^.]*' | head -1)" ;; esac
+    if case "$text" in *TODO*) true ;; *) false ;; esac; then
       warn "boards screen (/) is still a placeholder: $(printf '%s' "$text" | head -c 120)"
     else
       printf '%s\n' "$names" | while IFS= read -r n; do
         [ -z "$n" ] && continue
-        printf '%s' "$text" | grep -qF "$n" || { echo "missing board '$n' on /"; exit 1; }
+        case "$text" in *"$n"*) ;; *) echo "missing board '$n' on /"; exit 1 ;; esac
       done || fail "boards screen (/) does not list every board from /api/boards. Rendered text: $(printf '%s' "$text" | head -c 300)"
       pass "rendered / lists: $(printf '%s' "$names" | tr '\n' ',' | sed 's/,$//')"
     fi
     slug=$(curl -s "$base/api/boards" | jq -r '(if type=="array" then . else .boards end)[0].slug')
     text=$(render "/boards/$slug" "$shots/$name-board.png")
     [ -n "$text" ] || fail "rendering /boards/$slug produced no text"
-    printf '%s' "$text" | grep -q 'Error' && fail "board screen (/boards/$slug) renders an error: $(printf '%s' "$text" | grep -o 'Error[^.]*' | head -1)"
+    case "$text" in *Error*) fail "board screen (/boards/$slug) renders an error: $(printf '%s' "$text" | grep -o 'Error[^.]*' | head -1)" ;; esac
     pass "rendered /boards/$slug without errors: $(printf '%s' "$text" | head -c 100)"
     pass "screenshots in $shots/$name-root.png and $name-board.png"
 
