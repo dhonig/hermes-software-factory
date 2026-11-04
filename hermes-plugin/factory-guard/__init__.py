@@ -8,6 +8,9 @@ enforced here instead of trusted to the prompt:
    a real branch diff and there is something to merge.
 2. When a builder is spawned to review its own task (it requested review
    without naming a reviewer), the review is handed to the Reviewer.
+3. The Reviewer, Security and QA profiles cannot call kanban_request_review.
+   They kept requesting review of their own task, which sent it straight back
+   to them; they must finish with complete, block or request_changes.
 
 Only acts on the factory board and its profiles (see FACTORY_* below).
 """
@@ -25,6 +28,7 @@ BOARD = os.environ.get("FACTORY_BOARD", "software-factory")
 PREFIX = os.environ.get("FACTORY_PROFILE_PREFIX", "sf-")
 REVIEWER = PREFIX + "reviewer"
 BUILDERS = {PREFIX + "backend", PREFIX + "frontend"}
+CHECKERS = {PREFIX + "reviewer", PREFIX + "security", PREFIX + "qa"}
 BUILD_DIRS = ("target", "node_modules", "dist", "build", ".venv", "__pycache__", ".idea")
 
 
@@ -91,5 +95,24 @@ def _on_spawned(task_id=None, board=None, assignee=None, workspace_path=None, **
         threading.Thread(target=_reroute_review, args=(board, task_id), daemon=True).start()
 
 
+def _current_profile() -> str:
+    home = Path(os.environ.get("HERMES_HOME", "")).resolve()
+    return home.name if home.parent.name == "profiles" else ""
+
+
+def _on_pre_tool_call(tool_name=None, **_kw):
+    if tool_name != "kanban_request_review" or _current_profile() not in CHECKERS:
+        return None
+    return {
+        "action": "block",
+        "message": (
+            "kanban_request_review is not available to reviewer, security or QA: it sends the task "
+            "back to you. Finish with kanban_complete if it passes, or kanban_request_changes / "
+            "kanban_block with the exact finding if it fails."
+        ),
+    }
+
+
 def register(ctx):
     ctx.register_hook("on_kanban_worker_spawned", _on_spawned)
+    ctx.register_hook("pre_tool_call", _on_pre_tool_call)

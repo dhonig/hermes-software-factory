@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Install the factory-guard Hermes plugin (hermes-plugin/factory-guard) and
-# enable it. It commits builder work before review and keeps builders from
-# reviewing their own tasks. See the plugin's docstring for details.
+# enable it. It commits builder work before review, keeps builders from
+# reviewing their own tasks, and stops reviewer/security/QA from calling
+# kanban_request_review. See the plugin's docstring for details.
+#
+# Plugins load from each Hermes home, so it goes into the default home (where
+# the dispatcher runs) and into the reviewer, security and QA profiles (where
+# their workers run).
 . "$(dirname "$0")/../lib/common.sh"
 
 src="$FACTORY_ROOT/hermes-plugin/factory-guard"
@@ -19,3 +24,15 @@ else
   run hermes config set plugins.enabled "$(printf '%s' "$enabled" | jq -c '. + ["factory-guard"]')" >/dev/null
 fi
 state_add plugins factory-guard
+
+for role in reviewer security qa; do
+  p=$(profile_name "$role")
+  pdest="$HOME/.hermes/profiles/$p/plugins/factory-guard"
+  log "Installing factory-guard into $p"
+  run mkdir -p "$pdest"
+  run cp "$src/plugin.yaml" "$src/__init__.py" "$pdest/"
+  penabled=$(hermes -p "$p" config get plugins.enabled --json 2>/dev/null | jq -c 'if type=="array" then . else [] end' 2>/dev/null || echo "[]")
+  if ! printf '%s' "$penabled" | jq -e 'index("factory-guard")' >/dev/null; then
+    run hermes -p "$p" config set plugins.enabled "$(printf '%s' "$penabled" | jq -c '. + ["factory-guard"]')" >/dev/null
+  fi
+done
