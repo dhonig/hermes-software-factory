@@ -116,6 +116,10 @@ def escalations():
         with open(log, errors="replace") as f:
             if not re.search(r"error\[E\d+\]", f.read()):
                 continue
+        status = subprocess.run(["claude", "auth", "status"], capture_output=True, text=True, timeout=30,
+                                env={k: os.environ[k] for k in ("HOME", "USER", "PATH") if k in os.environ})
+        if '"loggedIn": true' not in status.stdout:
+            return [f"ESCALATION-NEEDS-LOGIN {tid} is stuck on a compile error: run claude auth login"]
         env = {k: v for k, v in os.environ.items() if k != "HERMES_HOME"}
         with open(os.devnull, "r+") as null:
             subprocess.Popen([os.path.join(FACTORY, "factory.sh"), "escalate", tid], cwd=FACTORY, env=env,
