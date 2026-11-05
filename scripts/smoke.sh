@@ -161,7 +161,15 @@ if [ "$frontend_built" = 1 ]; then
       live_out=$(CHROME="$chrome" NODE_PATH="$pw_path" perl -e 'alarm shift; exec @ARGV' 60 \
         node "$FACTORY_ROOT/scripts/livetest.js" "http://127.0.0.1:$live_port" fixtures \
         "$live_home/kanban/boards/fixtures/kanban.db" 2>&1 || true)
+      # Drag and drop uses the real hermes CLI, so it only ever runs on this scratch copy:
+      # the server passes HERMES_KANBAN_HOME=$live_home to the CLI.
+      drag_out=$(CHROME="$chrome" NODE_PATH="$pw_path" perl -e 'alarm shift; exec @ARGV' 90 \
+        node "$FACTORY_ROOT/scripts/dragtest.js" "http://127.0.0.1:$live_port" fixtures t_ready_006 2>&1 || true)
       kill "$live_pid" 2>/dev/null || true; wait "$live_pid" 2>/dev/null || true; rm -rf "$live_home"
+      case "$drag_out" in
+        ok:*) pass "drag and drop: ${drag_out#ok: }" ;;
+        *) if [ -n "${SMOKE_REQUIRE_DRAG:-}" ]; then fail "drag and drop: $drag_out"; else warn "drag and drop: $drag_out"; fi ;;
+      esac
       case "$live_out" in *"archived hidden"*) pass "archived hidden with the toggle off" ;; esac
       live_out=$(printf '%s\n' "$live_out" | grep -v '^archived hidden$')
       case "$live_out" in
