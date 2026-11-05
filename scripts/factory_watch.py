@@ -8,6 +8,7 @@ import json, os, re, sqlite3, subprocess, time
 BOARD = "software-factory"
 LOGS = os.path.expanduser(f"~/.hermes/kanban/boards/{BOARD}/logs")
 DB = os.environ.get("FACTORY_WATCH_DB") or os.path.expanduser(f"~/.hermes/kanban/boards/{BOARD}/kanban.db")
+FACTORY = os.environ.get("FACTORY_ROOT") or os.path.expanduser("~/IdeaProjects/hermes-software-factory")
 REPO = os.environ.get("FACTORY_TARGET_REPO") or os.path.expanduser("~/IdeaProjects/hermes-board")
 STALE_SECS = 20 * 60
 BLOCKED_LONG_SECS = 30 * 60
@@ -82,7 +83,48 @@ def merge_problems():
     return found
 
 
-problems = merge_problems()
+def conf(name, default=""):
+    try:
+        with open(os.path.join(FACTORY, "factory.conf")) as f:
+            for line in f:
+                m = re.match(rf"\s*{name}=\"?([^\"#\s]*)", line)
+                if m:
+                    return m.group(1)
+    except OSError:
+        pass
+    return default
+
+
+def escalations():
+    """With ESCALATE_AUTO=1, start escalate.sh for a stuck builder task with a compile error."""
+    if conf("ESCALATE_AUTO", "0") != "1":
+        return []
+    marks = os.path.join(FACTORY, ".factory", "escalations")
+    if os.path.isdir(os.path.join(marks, ".lock")):
+        return []  # one at a time
+    conn = sqlite3.connect(DB, timeout=5)
+    conn.execute("PRAGMA query_only = ON")
+    rows = conn.execute(
+        "select id, title from tasks where assignee in ('sf-backend', 'sf-frontend', 'sf-integrator') "
+        "and (status = 'blocked' or (consecutive_failures >= 2 and status in ('ready', 'todo')))"
+    ).fetchall()
+    conn.close()
+    for tid, title in rows:
+        log = os.path.join(LOGS, f"{tid}.log")
+        if os.path.exists(os.path.join(marks, f"{tid}.marker")) or not os.path.exists(log):
+            continue
+        with open(log, errors="replace") as f:
+            if not re.search(r"error\[E\d+\]", f.read()):
+                continue
+        env = {k: v for k, v in os.environ.items() if k != "HERMES_HOME"}
+        with open(os.devnull, "r+") as null:
+            subprocess.Popen([os.path.join(FACTORY, "factory.sh"), "escalate", tid], cwd=FACTORY, env=env,
+                             stdin=null, stdout=null, stderr=null, start_new_session=True)
+        return [f"ESCALATED {tid} to Claude Code: {title}"]
+    return []
+
+
+problems = merge_problems() + escalations()
 for t in tasks("blocked"):
     problems.append(f"BLOCKED {t['id']} ({t.get('assignee')}) {t.get('title')}")
 

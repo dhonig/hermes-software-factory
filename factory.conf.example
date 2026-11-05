@@ -22,6 +22,11 @@ BUILDER_MODEL="Qwen3-Coder-Next-5bit"
 # Model for the Integrator (resolves merge conflicts). Empty = BUILDER_MODEL.
 INTEGRATOR_MODEL=""
 
+# Escalation: hand a stuck build task to headless Claude Code (needs `claude auth login`).
+ESCALATE_AUTO=0                 # 1 = factory-watch escalates compile failures, once per task
+ESCALATE_MAX_TURNS=40
+ESCALATE_MAX_BUDGET_USD=5       # hard stop per escalation
+
 # Discord channel IDs (written here by scripts/discord-setup.sh).
 DISCORD_NOTIFY_CHANNEL=""
 DISCORD_GUILD_ID=""
