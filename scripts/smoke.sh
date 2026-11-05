@@ -111,7 +111,7 @@ if [ "$frontend_built" = 1 ]; then
     text=$(render / "$shots/$name-root.png")
     [ -n "$text" ] || fail "rendering / produced no text"
     case "$text" in *Error*) fail "boards screen (/) renders an error: $(printf '%s' "$text" | grep -o 'Error[^.]*' | head -1)" ;; esac
-    if case "$text" in *TODO*) true ;; *) false ;; esac; then
+    if case "$text" in *"Boards TODO"*) true ;; *) false ;; esac; then
       warn "boards screen (/) is still a placeholder: $(printf '%s' "$text" | head -c 120)"
     else
       printf '%s\n' "$names" | while IFS= read -r n; do
