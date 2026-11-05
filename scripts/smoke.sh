@@ -86,6 +86,16 @@ if [ "$frontend_built" = 1 ]; then
     [ "$code" = 200 ] || fail "GET $a returned $code"
     pass "GET $a 200"
   done
+  # A stylesheet that serves 200 can still be empty: it must keep the core classes.
+  css=$(printf '%s\n' "$assets" | grep '\.css$' | head -1)
+  if [ -n "$css" ]; then
+    case "$css" in /*) ;; *) css="/$css" ;; esac
+    curl -s -o "$body" "$base$css"
+    for cls in .app-header .board-card .column .task-card .status-done .status-blocked; do
+      grep -qF -- "$cls" "$body" || fail "stylesheet $css is missing $cls ($(wc -c < "$body" | tr -d ' ') bytes)"
+    done
+    pass "stylesheet has the core classes"
+  fi
   code=$(curl -s -o "$body" -w '%{http_code}' "$base/boards/software-factory")
   [ "$code" = 200 ] && grep -qi '<html' "$body" || fail "client route /boards/software-factory returned $code, expected the index.html fallback"
   pass "GET /boards/software-factory 200 (SPA fallback)"

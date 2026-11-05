@@ -18,12 +18,16 @@ enforced here instead of trusted to the prompt:
    request review, and the Reviewer, Security, QA and Integrator can't complete,
    unless `factory.sh check` recorded a pass for the worktree's current HEAD.
    Models kept reporting passes for code that had never compiled.
+6. The Reviewer, Security and QA can't change a worktree from the terminal
+   (git add/commit, sed -i, redirects into source files). They have no file
+   tools, but one rewrote a stylesheet from the shell and another committed it.
 
 Only acts on the factory board and its profiles (see FACTORY_* below).
 """
 
 import logging
 import os
+import re
 import sqlite3
 import subprocess
 import threading
@@ -37,6 +41,15 @@ REVIEWER = PREFIX + "reviewer"
 BUILDERS = {PREFIX + "backend", PREFIX + "frontend"}
 CHECKERS = {PREFIX + "reviewer", PREFIX + "security", PREFIX + "qa"}
 INTEGRATOR = PREFIX + "integrator"
+# git merge and git merge --abort stay allowed: QA's trial merge needs them.
+WRITE_COMMAND = re.compile(
+    r"\bgit\s+(add|commit|rm|mv|restore|stash|reset|revert|cherry-pick|apply)\b"
+    r"|\bgit\s+checkout\s+--"
+    r"|\bsed\s+(-[a-zA-Z]*\s+)*-[a-zA-Z]*i"
+    r"|\bperl\s+-[a-zA-Z]*i"
+    r"|\btee\b"
+    r"|>>?\s*[\"']?[^\s\"'|&;]*\.(rs|css|html|toml|lock|md|py|sh|js|json|yaml|yml)\b"
+)
 BUILD_DIRS = ("target", "node_modules", "dist", "build", ".venv", "__pycache__", ".idea")
 
 
@@ -139,8 +152,18 @@ def _check_gate() -> dict | None:
     }
 
 
-def _on_pre_tool_call(tool_name=None, **_kw):
+def _on_pre_tool_call(tool_name=None, args=None, **_kw):
     profile = _current_profile()
+    if tool_name == "terminal" and profile in CHECKERS:
+        command = (args or {}).get("command") or ""
+        if WRITE_COMMAND.search(command):
+            return {
+                "action": "block",
+                "message": (
+                    "Reviewer, security and QA must not change the worktree. If something needs "
+                    "fixing, finish with kanban_request_changes or kanban_block and the exact finding."
+                ),
+            }
     if (tool_name == "kanban_request_review" and profile in BUILDERS | {INTEGRATOR}) or (
         tool_name == "kanban_complete" and profile in CHECKERS | {INTEGRATOR}
     ):
