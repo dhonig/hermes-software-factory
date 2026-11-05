@@ -125,7 +125,21 @@ if [ "$frontend_built" = 1 ]; then
     [ -n "$text" ] || fail "rendering /boards/$slug produced no text"
     case "$text" in *Error*) fail "board screen (/boards/$slug) renders an error: $(printf '%s' "$text" | grep -o 'Error[^.]*' | head -1)" ;; esac
     pass "rendered /boards/$slug without errors: $(printf '%s' "$text" | head -c 100)"
-    pass "screenshots in $shots/$name-root.png and $name-board.png"
+    # Task detail. Task text can quote errors, so only render.js's own "Error (" lines
+    # count here, plus the page's error state, and the task's title must be on the page.
+    task=$(curl -s "$base/api/boards/$slug/tasks" | jq -c '.[0] // empty')
+    if [ -n "$task" ]; then
+      tid=$(printf '%s' "$task" | jq -r .id); title=$(printf '%s' "$task" | jq -r .title)
+      text=$(render "/boards/$slug/tasks/$tid" "$shots/$name-task.png")
+      case "$text" in
+        *"Error ("*|*"Error loading"*) fail "task page (/boards/$slug/tasks/$tid) renders an error: $(printf '%s' "$text" | head -c 200)" ;;
+      esac
+      case "$text" in
+        *"$title"*) pass "rendered /boards/$slug/tasks/$tid: $title" ;;
+        *) fail "task page (/boards/$slug/tasks/$tid) does not show the task title '$title'. Rendered text: $(printf '%s' "$text" | head -c 300)" ;;
+      esac
+    fi
+    pass "screenshots in $shots/$name-root.png, $name-board.png and $name-task.png"
 
     # Live updates, against a scratch copy of the fixture board (never a real board).
     if [ -d "$wt/fixtures/kanban/boards/fixtures" ] && command -v sqlite3 >/dev/null; then
