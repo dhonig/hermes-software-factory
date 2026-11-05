@@ -3,6 +3,8 @@
 //
 //   CHROME=... NODE_PATH=... node scripts/livetest.js <base-url> <board-slug> <kanban.db>
 //
+// Also checks that archived tasks stay off the page until "Show archived" is ticked.
+//
 // Run it against a COPY of a board (e.g. the fixture), never a live Hermes board.
 const { chromium } = require("playwright-core");
 const { execFileSync } = require("child_process");
@@ -18,6 +20,18 @@ const { execFileSync } = require("child_process");
     const page = await browser.newPage();
     await page.goto(`${base}/boards/${slug}`, { waitUntil: "load", timeout: 15000 });
     await page.waitForFunction(() => document.body.innerText.includes("ID:"), null, { timeout: 10000 });
+    const tag = `ARCHIVED-PROBE-${Date.now()}`;
+    execFileSync("sqlite3", [db, `update tasks set status='archived', title='${tag}' where id=(select id from tasks order by id desc limit 1);` +
+      `insert into task_events(task_id, kind, payload, created_at) values ((select id from tasks order by id limit 1), 'edited', NULL, strftime('%s','now'));`]);
+    await page.reload({ waitUntil: "load" });
+    await page.waitForFunction(() => document.body.innerText.includes("ID:"), null, { timeout: 10000 });
+    await page.waitForTimeout(500);
+    if ((await page.evaluate(() => document.body.innerText)).includes(tag)) {
+      console.log("FAIL: an archived task is on the page with Show archived off");
+      process.exitCode = 1;
+      return;
+    }
+    console.log("archived hidden");
     const probe = `LIVE-UPDATE-PROBE-${Date.now()}`;
     execFileSync("sqlite3", [db,
       `update tasks set title='${probe}' where id=(select id from tasks order by id limit 1);` +

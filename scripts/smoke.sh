@@ -162,6 +162,8 @@ if [ "$frontend_built" = 1 ]; then
         node "$FACTORY_ROOT/scripts/livetest.js" "http://127.0.0.1:$live_port" fixtures \
         "$live_home/kanban/boards/fixtures/kanban.db" 2>&1 || true)
       kill "$live_pid" 2>/dev/null || true; wait "$live_pid" 2>/dev/null || true; rm -rf "$live_home"
+      case "$live_out" in *"archived hidden"*) pass "archived hidden with the toggle off" ;; esac
+      live_out=$(printf '%s\n' "$live_out" | grep -v '^archived hidden$')
       case "$live_out" in
         ok:*) pass "live updates: ${live_out#ok: }" ;;
         *) if [ -n "${SMOKE_REQUIRE_LIVE:-}" ]; then fail "live updates: $live_out"; else warn "live updates: $live_out"; fi ;;
