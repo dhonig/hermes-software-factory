@@ -17,6 +17,9 @@ Setup
 Work
   feature "<goal>"     ask the Planner for a plan [--details "..."]
   approve <task-id>    review the plan and create build -> security -> QA tasks [--yes]
+  ticket "<title>" --done-when "<command>" [--role backend|frontend] [--details "..."]
+                       fast lane: skip the Planner, one build -> security -> QA chain; the
+                       check gate also requires <command> to exit 0 in the worktree
   integrate <build-id> ["what failed"]
                        hand a branch that won't merge cleanly to the Integrator
   smoke <worktree>     build the backend, start it on a free port and curl its endpoints
@@ -50,6 +53,7 @@ case "$cmd" in
   doctor)   "$S/doctor.sh" "$@" ;;
   feature)  "$S/new-feature.sh" "$@" ;;
   approve)  "$S/approve-plan.sh" "$@" ;;
+  ticket)   "$S/ticket.sh" "$@" ;;
   integrate) "$S/integrate.sh" "$@" ;;
   smoke)    "$S/smoke.sh" "$@" ;;
   check)    "$S/check-gate.sh" "$@" ;;

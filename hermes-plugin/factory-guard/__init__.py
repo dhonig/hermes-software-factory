@@ -17,7 +17,9 @@ enforced here instead of trusted to the prompt:
 5. No hand-off without a real ./check.sh pass. Builders and the Integrator can't
    request review, and the Reviewer, Security, QA and Integrator can't complete,
    unless `factory.sh check` recorded a pass for the worktree's current HEAD.
-   Models kept reporting passes for code that had never compiled.
+   Models kept reporting passes for code that had never compiled. For fast-lane
+   tickets (.factory/done-when/<worktree>), the pass must also cover the
+   ticket's done-when command: check-pass/<sha>@<worktree>.
 6. The Reviewer, Security and QA can't change a worktree from the terminal
    (git add/commit, sed -i, redirects into source files). They have no file
    tools, but one rewrote a stylesheet from the shell and another committed it.
@@ -141,7 +143,12 @@ def _check_gate() -> dict | None:
         log.warning("factory-guard: rev-parse failed in %s: %s", workspace, exc)
         return None
     sha = res.stdout.strip()
-    if res.returncode != 0 or not sha or (root / ".factory" / "check-pass" / sha).exists():
+    if res.returncode != 0 or not sha:
+        return None
+    # Fast-lane tickets carry a done-when command; their pass is per worktree.
+    name = Path(workspace).name
+    key = f"{sha}@{name}" if (root / ".factory" / "done-when" / name).exists() else sha
+    if (root / ".factory" / "check-pass" / key).exists():
         return None
     return {
         "action": "block",

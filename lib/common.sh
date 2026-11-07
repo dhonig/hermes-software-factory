@@ -31,6 +31,7 @@ SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-900}"
 [ -f "$FACTORY_ROOT/factory.conf" ] && . "$FACTORY_ROOT/factory.conf"
 # Tests point the scripts at a scratch board (with HERMES_KANBAN_HOME).
 BOARD="${FACTORY_BOARD:-$BOARD}"
+TARGET_REPO="${FACTORY_TARGET_REPO:-$TARGET_REPO}"
 
 DRY_RUN="${DRY_RUN:-0}"
 for _arg in "$@"; do
@@ -137,6 +138,44 @@ create_task() {
     return
   fi
   kanban create "$@" --json </dev/null | jq -r '.id // .task.id'
+}
+
+# Create one ticket's tasks: build (own worktree + branch, reviewed by the
+# Reviewer) -> security check -> QA, both in the build's worktree. Used by
+# approve-plan.sh and ticket.sh. Sets CHAIN_BUILD, CHAIN_SEC, CHAIN_QA, CHAIN_DESC.
+#   create_chain <role> <title> <scope> <branch> <worktree> <key> <parent-build|""> <context> <qa-criteria>
+create_chain() {
+  local role="$1" title="$2" scope="$3" branch="$4" wt="$5" key="$6" parent="$7" context="$8" criteria="$9"
+  local reviewer parent_args=()
+  reviewer=$(profile_name reviewer)
+  [ -n "$parent" ] && parent_args=(--parent "$parent")
+
+  CHAIN_BUILD=$(create_task "$title" --assignee "$(profile_name "$role")" \
+    --workspace "worktree:$wt" --branch "$branch" --created-by factory \
+    --idempotency-key "$key:build" ${parent_args[@]+"${parent_args[@]}"} \
+    --body "$scope
+
+Work in the worktree for branch $branch. Commit your changes on that branch.
+When done, call kanban_request_review with reviewer="$reviewer". Always pass the
+reviewer; without it you would be asked to review your own work.
+$context Shared memory: .ecc/memory/ in the worktree.")
+
+  CHAIN_SEC=$(create_task "Security check: $title" --assignee "$(profile_name security)" \
+    --workspace "dir:$wt" --parent "$CHAIN_BUILD" --created-by factory \
+    --idempotency-key "$key:security" \
+    --body "Security-check the diff of branch $branch against the default branch. Build task: $CHAIN_BUILD.")
+  local qa_parent="$CHAIN_SEC"
+
+  CHAIN_QA=$(create_task "QA: $title" --assignee "$(profile_name qa)" \
+    --workspace "dir:$wt" --parent "$qa_parent" --created-by factory \
+    --idempotency-key "$key:qa" \
+    --body "Verify branch $branch end to end. $criteria")
+
+  notify_discord "$CHAIN_BUILD" "$role"
+  notify_discord "$CHAIN_BUILD" reviewer      # the Reviewer finishes the build card
+  [ -n "$CHAIN_SEC" ] && notify_discord "$CHAIN_SEC" security
+  notify_discord "$CHAIN_QA" qa alerts        # "ready to merge" also goes to #factory-alerts
+  CHAIN_DESC="build $CHAIN_BUILD -> security $CHAIN_SEC -> qa $CHAIN_QA"
 }
 
 # Post a task's outcome (done, blocked) to Discord: in its role's channel, so
