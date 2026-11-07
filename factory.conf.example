@@ -47,6 +47,15 @@ OMLX_URL=""                     # e.g. http://127.0.0.1:8000
 # OMLX_API_KEY is read from ~/.hermes/config.yaml (providers.omlx.api_key); don't put it here.
 # FACTORY_SKIP_HEALTH=1 in the environment skips the check for one command.
 
-# Discord channel IDs (written here by scripts/discord-setup.sh).
-DISCORD_NOTIFY_CHANNEL=""
+# Discord channel IDs (written here by ./factory.sh discord and ./factory.sh channels).
+DISCORD_NOTIFY_CHANNEL=""       # #factory-alerts
 DISCORD_GUILD_ID=""
+# One channel per role, routed to that role's profile. Create #integrator in
+# Discord too, then rerun ./factory.sh channels to fill these in.
+DISCORD_CHANNEL_PLANNER=""
+DISCORD_CHANNEL_BACKEND=""
+DISCORD_CHANNEL_FRONTEND=""
+DISCORD_CHANNEL_REVIEWER=""
+DISCORD_CHANNEL_SECURITY=""
+DISCORD_CHANNEL_QA=""
+DISCORD_CHANNEL_INTEGRATOR=""

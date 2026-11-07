@@ -48,6 +48,19 @@ def unmerged(branch):
     return res.returncode == 0 and res.stdout.strip() != "0"
 
 
+def review_packet(qa_task):
+    """Write the ticket's review packet (factory.sh packet) and say where it is."""
+    try:
+        res = subprocess.run([os.path.join(FACTORY, "factory.sh"), "packet", qa_task],
+                             capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
+    except Exception:
+        res = None
+    m = re.search(r"Review packet: (\S+)", res.stdout if res else "")
+    if not m:
+        return "test-merge it into main"
+    return f"review packet {os.path.relpath(m.group(1), FACTORY)}, then test-merge it into main"
+
+
 def merge_problems():
     # mode=ro can't open a WAL database with no sidecar files, so use query_only.
     conn = sqlite3.connect(DB, timeout=5)
@@ -77,7 +90,7 @@ def merge_problems():
     # A branch with open work on it isn't ready to merge yet.
     for name, tid in qa_done.items():
         if name not in open_branches:
-            found.append(f"QA-PASSED-NOT-MERGED {name} ({tid}): test-merge it into main")
+            found.append(f"QA-PASSED-NOT-MERGED {name} ({tid}): {review_packet(tid)}")
     if built and not any(r[2] in ("ready", "running") for r in rows):
         found.append(f"IDLE no ready or running tasks, unmerged branches: {', '.join(sorted(built))}")
     return found
