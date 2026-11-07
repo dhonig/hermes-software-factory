@@ -14,6 +14,8 @@ Setup
   channels             give each role its own Discord channel (asks for one ID per role,
                        including #integrator)
   doctor               check tools, config, gateway, board, profiles
+  config [show]        every setting's effective value and where it came from
+  config migrate       write factory.toml from factory.conf (leaves factory.conf alone) [--dry-run]
 
 Work
   feature "<goal>"     ask the Planner for a plan [--details "..."]
@@ -56,6 +58,7 @@ case "$cmd" in
   discord)  "$S/discord-setup.sh" "$@" ;;
   channels) "$S/discord-roles.sh" "$@" ;;
   doctor)   "$S/doctor.sh" "$@" ;;
+  config)   "$S/config.sh" "$@" ;;
   feature)  "$S/new-feature.sh" "$@" ;;
   approve)  "$S/approve-plan.sh" "$@" ;;
   ticket)   "$S/ticket.sh" "$@" ;;

@@ -24,7 +24,8 @@ enforced here instead of trusted to the prompt:
    (git add/commit, sed -i, redirects into source files). They have no file
    tools, but one rewrote a stylesheet from the shell and another committed it.
 
-Only acts on the factory board and its profiles (see FACTORY_* below).
+Only acts on the factory board and its profiles: board.slug and
+board.profile_prefix from factory.toml (FACTORY_BOARD / FACTORY_PROFILE_PREFIX override).
 """
 
 import logging
@@ -37,8 +38,31 @@ from pathlib import Path
 
 log = logging.getLogger("factory-guard")
 
-BOARD = os.environ.get("FACTORY_BOARD", "software-factory")
-PREFIX = os.environ.get("FACTORY_PROFILE_PREFIX", "sf-")
+
+
+def _settings() -> dict:
+    """Board and profile prefix from the factory's factory.toml (lib/config.py),
+    found through the factory_root file install-guard.sh writes next to this one.
+    Environment variables win; built-in defaults if anything goes wrong."""
+    conf = {}
+    try:
+        import importlib.util
+        root = Path(__file__).with_name("factory_root").read_text().strip()
+        spec = importlib.util.spec_from_file_location("factory_config", Path(root) / "lib" / "config.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        conf = mod.load(root)
+    except Exception as exc:  # never break Hermes over a guard
+        log.debug("factory-guard: using default settings: %s", exc)
+    return {
+        "board": os.environ.get("FACTORY_BOARD") or conf.get("BOARD") or "software-factory",
+        "prefix": os.environ.get("FACTORY_PROFILE_PREFIX") or conf.get("PROFILE_PREFIX") or "sf-",
+    }
+
+
+_S = _settings()
+BOARD = _S["board"]
+PREFIX = _S["prefix"]
 REVIEWER = PREFIX + "reviewer"
 BUILDERS = {PREFIX + "backend", PREFIX + "frontend"}
 CHECKERS = {PREFIX + "reviewer", PREFIX + "security", PREFIX + "qa"}

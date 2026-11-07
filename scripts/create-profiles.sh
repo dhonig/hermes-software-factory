@@ -28,10 +28,10 @@ for role in $ROLES; do
 
   home="$HOME/.hermes/profiles/$p"
   if [ "$DRY_RUN" = "1" ]; then
-    run cp "$FACTORY_ROOT/roles/$role.md" "$home/SOUL.md"
+    printf '%s[dry-run]%s render roles/%s.md > %s/SOUL.md\n' "$C_DIM" "$C_OFF" "$role" "$home"
   else
     [ -d "$home" ] || home="$(hermes profile show "$p" | awk '/^Path:/ {print $2}')"
-    cp "$FACTORY_ROOT/roles/$role.md" "$home/SOUL.md"
+    render_role "$role" > "$home/SOUL.md"
   fi
 done
 

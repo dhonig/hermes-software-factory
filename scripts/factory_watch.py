@@ -3,15 +3,37 @@
 # (no timestamps, so unchanged problems don't re-trigger the agent), or "OK".
 #
 # Installed to ~/.hermes/profiles/sf-planner/scripts/ by scripts/install-guard.sh.
-import json, os, re, sqlite3, subprocess, time
+#
+# Settings come from the factory's factory.toml (or factory.conf) through
+# lib/config.py. FACTORY_ROOT points at the factory checkout; install-guard.sh
+# writes it next to this file as factory_root.
+import importlib.util, json, os, re, sqlite3, subprocess, time
 
-BOARD = "software-factory"
-LOGS = os.path.expanduser(f"~/.hermes/kanban/boards/{BOARD}/logs")
-DB = os.environ.get("FACTORY_WATCH_DB") or os.path.expanduser(f"~/.hermes/kanban/boards/{BOARD}/kanban.db")
-FACTORY = os.environ.get("FACTORY_ROOT") or os.path.expanduser("~/IdeaProjects/hermes-software-factory")
-REPO = os.environ.get("FACTORY_TARGET_REPO") or os.path.expanduser("~/IdeaProjects/hermes-board")
-STALE_SECS = 20 * 60
-BLOCKED_LONG_SECS = 30 * 60
+
+def _factory_root():
+    if os.environ.get("FACTORY_ROOT"):
+        return os.environ["FACTORY_ROOT"]
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(globals().get("__file__", "."))), "factory_root")) as f:
+            return f.read().strip()
+    except OSError:
+        return os.path.expanduser("~/IdeaProjects/hermes-software-factory")
+
+
+FACTORY = _factory_root()
+_spec = importlib.util.spec_from_file_location("factory_config", os.path.join(FACTORY, "lib", "config.py"))
+_config = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_config)
+CONF = _config.load(os.environ.get("FACTORY_CONFIG_DIR") or FACTORY)
+
+BOARD = CONF["BOARD"]
+PREFIX = CONF["PROFILE_PREFIX"]
+_KANBAN = os.environ.get("HERMES_KANBAN_HOME") or os.path.expanduser("~/.hermes")
+LOGS = os.path.join(_KANBAN, "kanban", "boards", BOARD, "logs")
+DB = os.environ.get("FACTORY_WATCH_DB") or os.path.join(_KANBAN, "kanban", "boards", BOARD, "kanban.db")
+REPO = os.path.expanduser(os.environ.get("FACTORY_TARGET_REPO") or CONF["TARGET_REPO"])
+STALE_SECS = CONF["WATCH_STALE_MINUTES"] * 60
+BLOCKED_LONG_SECS = CONF["WATCH_BLOCKED_MINUTES"] * 60
 
 
 def kanban(*args):
@@ -74,7 +96,7 @@ def merge_problems():
         "where t.status = 'blocked' and e.kind = 'blocked' group by t.id having max(e.created_at) < ?",
         (time.time() - BLOCKED_LONG_SECS,),
     ):
-        found.append(f"BLOCKED-OVER-30-MIN {tid} {title}")
+        found.append(f"BLOCKED-OVER-{CONF['WATCH_BLOCKED_MINUTES']}-MIN {tid} {title}")
     conn.close()
 
     open_branches, qa_done, built = set(), {}, set()
@@ -85,7 +107,7 @@ def merge_problems():
         built.add(name)
         if status != "done":
             open_branches.add(name)
-        elif assignee == "sf-qa":
+        elif assignee == PREFIX + "qa":
             qa_done[name] = tid
     # A branch with open work on it isn't ready to merge yet.
     for name, tid in qa_done.items():
@@ -96,21 +118,9 @@ def merge_problems():
     return found
 
 
-def conf(name, default=""):
-    try:
-        with open(os.path.join(FACTORY, "factory.conf")) as f:
-            for line in f:
-                m = re.match(rf"\s*{name}=\"?([^\"#\s]*)", line)
-                if m:
-                    return m.group(1)
-    except OSError:
-        pass
-    return default
-
-
 def escalations():
     """With ESCALATE_AUTO=1, start escalate.sh for a stuck builder task with a compile error."""
-    if conf("ESCALATE_AUTO", "0") != "1":
+    if not CONF["ESCALATE_AUTO"]:
         return []
     marks = os.path.join(FACTORY, ".factory", "escalations")
     if os.path.isdir(os.path.join(marks, ".lock")):
@@ -118,8 +128,9 @@ def escalations():
     conn = sqlite3.connect(DB, timeout=5)
     conn.execute("PRAGMA query_only = ON")
     rows = conn.execute(
-        "select id, title from tasks where assignee in ('sf-backend', 'sf-frontend', 'sf-integrator') "
-        "and (status = 'blocked' or (consecutive_failures >= 2 and status in ('ready', 'todo')))"
+        "select id, title from tasks where assignee in (?, ?, ?) "
+        "and (status = 'blocked' or (consecutive_failures >= 2 and status in ('ready', 'todo')))",
+        (PREFIX + "backend", PREFIX + "frontend", PREFIX + "integrator"),
     ).fetchall()
     conn.close()
     for tid, title in rows:
@@ -165,7 +176,7 @@ for t in tasks("running"):
     tid = t["id"]
     log = os.path.join(LOGS, f"{tid}.log")
     if os.path.exists(log) and time.time() - os.path.getmtime(log) > STALE_SECS:
-        problems.append(f"STALLED {tid} ({t.get('assignee')}) log unchanged >20 min: {t.get('title')}")
+        problems.append(f"STALLED {tid} ({t.get('assignee')}) log unchanged >{CONF['WATCH_STALE_MINUTES']} min: {t.get('title')}")
     if os.path.exists(log):
         with open(log, errors="replace") as f:
             cmds = [re.sub(r"\s+[0-9.]+s.*$", "", l).strip() for l in f if "💻 $" in l][-6:]

@@ -1,0 +1,76 @@
+# Factory settings. Copy to factory.toml (git-ignored) and edit.
+# Secrets don't go here: the Discord bot token stays in ~/.hermes/.env and the
+# model server's API key in ~/.hermes/config.yaml.
+# ./factory.sh config show prints the effective values and where each came from.
+
+[target]
+# The repository the factory works on. Each build task gets a worktree under <repo>/.worktrees/.
+repo = ""
+
+[board]
+# Kanban board used only by the factory.
+slug = "software-factory"
+# Display name of the board.
+name = "Software Factory"
+# Role profiles are named <prefix><role>.
+profile_prefix = "sf-"
+# Roles that get a Hermes profile.
+roles = ["planner", "backend", "frontend", "reviewer", "security", "qa", "integrator"]
+
+[guardrails]
+# Tasks running at once across the board.
+max_in_progress = 2
+# Workers per role at a time.
+max_in_progress_per_profile = 1
+# Consecutive failures before a task is blocked.
+failure_limit = 2
+
+[models]
+# Model for the Backend and Frontend builders (empty = the default profile's).
+builder = ""
+# Model for the Integrator (empty = models.builder).
+integrator = ""
+# Model server root for factory.sh health (empty = Hermes's model.base_url without /v1). Environment variable OMLX_URL overrides it.
+omlx_url = ""
+
+[check]
+# Seconds for ./check.sh in factory.sh check (0 = no limit). Environment variable CHECK_TIMEOUT overrides it.
+timeout = 1800
+# Seconds for factory.sh smoke (0 = no limit). Environment variable SMOKE_TIMEOUT overrides it.
+smoke_timeout = 900
+# Security scanners the check gate runs ([] = none). Missing ones are skipped with a warning. Environment variable SCANNERS overrides it.
+scanners = ["gitleaks", "semgrep"]
+# semgrep ruleset. Environment variable SEMGREP_CONFIG overrides it.
+semgrep_config = "p/default"
+# Also put a sf-security model check between build and QA. Environment variable SECURITY_ROLE overrides it.
+security_role = false
+
+[escalation]
+# factory-watch escalates compile failures to Claude Code, once per task.
+auto = false
+# Turn limit per escalation.
+max_turns = 40
+# Hard spend limit per escalation.
+max_budget_usd = 5
+
+[discord]
+# Discord server ID (written by factory.sh discord).
+guild_id = ""
+# #factory-alerts channel ID.
+alerts_channel = ""
+
+[discord.channels]
+# One channel per role, routed to that role's profile (written by factory.sh channels).
+planner = ""
+backend = ""
+frontend = ""
+reviewer = ""
+security = ""
+qa = ""
+integrator = ""
+
+[watch]
+# factory-watch: a running task whose log hasn't changed this long is STALLED.
+stale_minutes = 20
+# factory-watch: a task blocked this long is BLOCKED-OVER-N-MIN.
+blocked_minutes = 30

@@ -9,7 +9,7 @@
 # don't fit omlx's memory ceiling, since omlx would then swap models mid-run and
 # crash workers. Exits 1 when something is not ready.
 #
-# Settings (factory.conf or environment):
+# Settings (factory.toml [models], or environment):
 #   OMLX_URL      server root (default: the default profile's model.base_url without /v1)
 #   OMLX_API_KEY  bearer token (default: providers.omlx.api_key in ~/.hermes/config.yaml)
 #   HEALTH_MODELS space-separated model ids to require instead of reading the profiles
@@ -29,7 +29,7 @@ if [ -z "$url" ]; then
   url=$(hermes config get model.base_url 2>/dev/null || true)
   url="${url%/}"; url="${url%/v1}"
 fi
-[ -n "$url" ] || die "No model server URL: set OMLX_URL in factory.conf."
+[ -n "$url" ] || die "No model server URL: set models.omlx_url in factory.toml."
 
 key="${OMLX_API_KEY:-}"
 if [ -z "$key" ]; then

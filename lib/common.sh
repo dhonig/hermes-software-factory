@@ -8,30 +8,28 @@ FACTORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATE_DIR="${FACTORY_STATE_DIR:-$FACTORY_ROOT/.factory}"
 mkdir -p "$STATE_DIR"
 
-# Defaults, overridden by factory.conf.
-BOARD="software-factory"
-BOARD_NAME="Software Factory"
-PROFILE_PREFIX="sf-"
-ROLES="planner backend frontend reviewer security qa integrator"
-TARGET_REPO=""
-MAX_IN_PROGRESS=2
-MAX_IN_PROGRESS_PER_PROFILE=1
-FAILURE_LIMIT=2
-BUILDER_MODEL=""
-INTEGRATOR_MODEL=""
-ESCALATE_AUTO=0
-ESCALATE_MAX_TURNS=40
-ESCALATE_MAX_BUDGET_USD=5
-DISCORD_NOTIFY_CHANNEL=""
-DISCORD_GUILD_ID=""
-OMLX_URL="${OMLX_URL:-}"
-SECURITY_ROLE="${SECURITY_ROLE:-0}"
-SCANNERS="${SCANNERS-gitleaks,semgrep}"
-SEMGREP_CONFIG="${SEMGREP_CONFIG:-p/default}"
-CHECK_TIMEOUT="${CHECK_TIMEOUT:-1800}"
-SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-900}"
-
-[ -f "$FACTORY_ROOT/factory.conf" ] && . "$FACTORY_ROOT/factory.conf"
+# Settings: lib/config.py holds every key and default. It reads factory.toml
+# (plus environment overrides for the keys that allow them). Without
+# factory.toml, the deprecated factory.conf is sourced over the defaults.
+# FACTORY_CONFIG_DIR is for tests: where to look for factory.toml/factory.conf.
+CONFIG_DIR="${FACTORY_CONFIG_DIR:-$FACTORY_ROOT}"
+_cfg=$(python3 -I "$FACTORY_ROOT/lib/config.py" shell "$CONFIG_DIR") \
+  || { printf 'error: bad factory settings (see above); ./factory.sh config show\n' >&2; exit 1; }
+eval "$_cfg"
+if [ -z "$FACTORY_CONFIG_FILE" ] && [ -f "$CONFIG_DIR/factory.conf" ]; then
+  # Read the environment overrides first: sourcing factory.conf would overwrite
+  # an exported variable such as CHECK_TIMEOUT before Python could see it.
+  _env=$(python3 -I "$FACTORY_ROOT/lib/config.py" env "$CONFIG_DIR") || exit 1
+  . "$CONFIG_DIR/factory.conf"
+  eval "$_env"   # the environment still wins for the keys that allow it
+  unset _env
+  FACTORY_CONFIG_FILE=factory.conf
+  if [ -z "${FACTORY_CONF_WARNED:-}" ]; then
+    printf 'warning: factory.conf is deprecated; run ./factory.sh config migrate to write factory.toml\n' >&2
+    export FACTORY_CONF_WARNED=1
+  fi
+fi
+unset _cfg
 # Tests point the scripts at a scratch board (with HERMES_KANBAN_HOME).
 BOARD="${FACTORY_BOARD:-$BOARD}"
 TARGET_REPO="${FACTORY_TARGET_REPO:-$TARGET_REPO}"
@@ -80,6 +78,20 @@ strip_flags() {
 
 profile_name() { printf '%s%s' "$PROFILE_PREFIX" "$1"; }
 
+# A role prompt with its placeholders filled in: {{FACTORY_SH}} (this factory's
+# factory.sh), {{FACTORY_STATE}} (its .factory dir), {{OMLX_PORT}} (the model
+# server's port, from models.omlx_url or Hermes's model.base_url).
+#   render_role <role>   prints the prompt
+render_role() {
+  local url port
+  url="$OMLX_URL"
+  [ -n "$url" ] || url=$(hermes config get model.base_url 2>/dev/null || true)
+  port=$(printf '%s' "$url" | sed -nE 's#^[a-z]+://[^/:]+:([0-9]+).*#\1#p')
+  [ -n "$port" ] || port=8000
+  sed -e "s|{{FACTORY_SH}}|$FACTORY_ROOT/factory.sh|g" -e "s|{{FACTORY_STATE}}|$FACTORY_ROOT/.factory|g" \
+    -e "s|{{OMLX_PORT}}|$port|g" "$FACTORY_ROOT/roles/$1.md"
+}
+
 # Roles that get work dispatched to them. The security role only runs with
 # SECURITY_ROLE=1; by default the check gate's scanners replace it.
 active_roles() {
@@ -125,7 +137,7 @@ kanban_query() {
 }
 
 require_target_repo() {
-  [ -n "$TARGET_REPO" ] || die "TARGET_REPO is not set. Copy factory.conf.example to factory.conf and set it."
+  [ -n "$TARGET_REPO" ] || die "TARGET_REPO is not set: copy factory.example.toml to factory.toml and set target.repo."
   TARGET_REPO="${TARGET_REPO/#\~/$HOME}"
   [ -d "$TARGET_REPO/.git" ] || die "TARGET_REPO ($TARGET_REPO) is not a git repository."
   # Hermes only creates worktrees at paths inside the repo, so they live in
@@ -264,14 +276,18 @@ backup_env() {
   log "Backed up $ENV_FILE to $STATE_DIR"
 }
 
-# Set KEY="value" in factory.conf.
+# Set a setting in factory.toml (or, while it's still in use, factory.conf).
+#   conf_set <SHELL_VAR> <value>
 conf_set() {
-  local conf="$FACTORY_ROOT/factory.conf"
   if [ "$DRY_RUN" = "1" ]; then
-    printf '%s[dry-run]%s set %s=%s in factory.conf\n' "$C_DIM" "$C_OFF" "$1" "$2"
+    printf '%s[dry-run]%s set %s=%s in %s\n' "$C_DIM" "$C_OFF" "$1" "$2" "${FACTORY_CONFIG_FILE:-factory.toml}"
     return
   fi
-  [ -f "$conf" ] || cp "$FACTORY_ROOT/factory.conf.example" "$conf"
+  if [ "$FACTORY_CONFIG_FILE" != factory.conf ]; then
+    python3 -I "$FACTORY_ROOT/lib/config.py" set "$CONFIG_DIR" "$1" "$2"
+    return
+  fi
+  local conf="$CONFIG_DIR/factory.conf"
   grep -v "^$1=" "$conf" > "$conf.tmp" || true
   echo "$1=\"$2\"" >> "$conf.tmp"
   mv "$conf.tmp" "$conf"

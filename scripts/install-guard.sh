@@ -15,6 +15,8 @@ dest="$HOME/.hermes/plugins/factory-guard"
 log "Installing factory-guard plugin to $dest"
 run mkdir -p "$dest"
 run cp "$src/plugin.yaml" "$src/__init__.py" "$dest/"
+# Where the factory lives, so the plugin reads its settings (factory.toml).
+[ "$DRY_RUN" = "1" ] || printf '%s\n' "$FACTORY_ROOT" > "$dest/factory_root"
 
 enabled=$(hermes config get plugins.enabled --json 2>/dev/null | jq -c 'if type=="array" then . else [] end' 2>/dev/null || echo "[]")
 if printf '%s' "$enabled" | jq -e 'index("factory-guard")' >/dev/null; then
@@ -43,3 +45,4 @@ watch_dir="$HOME/.hermes/profiles/$(profile_name planner)/scripts"
 log "Installing factory_watch.py into $watch_dir"
 run mkdir -p "$watch_dir"
 run cp "$FACTORY_ROOT/scripts/factory_watch.py" "$watch_dir/"
+[ "$DRY_RUN" = "1" ] || printf '%s\n' "$FACTORY_ROOT" > "$watch_dir/factory_root"
