@@ -48,6 +48,8 @@ if [ "$yes" != 1 ] && [ "$DRY_RUN" != 1 ]; then
   esac
 fi
 
+require_healthy
+
 reviewer=$(profile_name reviewer)
 prev_build=""
 n=0

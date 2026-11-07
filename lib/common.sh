@@ -4,7 +4,8 @@
 set -euo pipefail
 
 FACTORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STATE_DIR="$FACTORY_ROOT/.factory"
+# FACTORY_STATE_DIR is for tests; the guard plugin reads <root>/.factory/check-pass.
+STATE_DIR="${FACTORY_STATE_DIR:-$FACTORY_ROOT/.factory}"
 mkdir -p "$STATE_DIR"
 
 # Defaults, overridden by factory.conf.
@@ -23,10 +24,13 @@ ESCALATE_MAX_TURNS=40
 ESCALATE_MAX_BUDGET_USD=5
 DISCORD_NOTIFY_CHANNEL=""
 DISCORD_GUILD_ID=""
+OMLX_URL="${OMLX_URL:-}"
 CHECK_TIMEOUT="${CHECK_TIMEOUT:-1800}"
 SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-900}"
 
 [ -f "$FACTORY_ROOT/factory.conf" ] && . "$FACTORY_ROOT/factory.conf"
+# Tests point the scripts at a scratch board (with HERMES_KANBAN_HOME).
+BOARD="${FACTORY_BOARD:-$BOARD}"
 
 DRY_RUN="${DRY_RUN:-0}"
 for _arg in "$@"; do
@@ -71,6 +75,24 @@ strip_flags() {
 }
 
 profile_name() { printf '%s%s' "$PROFILE_PREFIX" "$1"; }
+
+# Roles that get work dispatched to them.
+active_roles() { printf '%s\n' $ROLES; }
+
+# Refuse to release work to the dispatcher while the model server isn't ready
+# (omlx loading a model mid-run crashes workers). FACTORY_SKIP_HEALTH=1 skips it.
+require_healthy() {
+  [ "${FACTORY_SKIP_HEALTH:-0}" = 1 ] && return 0
+  if ! "$FACTORY_ROOT/scripts/health.sh" --quiet; then
+    if [ "$DRY_RUN" = 1 ]; then
+      warn "model server not ready (would refuse without --dry-run)"
+      return 0
+    fi
+    die "Model server not ready; see ./factory.sh health. Set FACTORY_SKIP_HEALTH=1 to go ahead anyway."
+  fi
+}
+
+PAUSE_FILE="$STATE_DIR/paused-tasks.txt"
 
 profile_exists() {
   hermes profile list 2>/dev/null | awk '{gsub(/◆/,""); print $1}' | grep -qx "$1"

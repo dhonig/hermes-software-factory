@@ -128,7 +128,23 @@ def escalations():
     return []
 
 
-problems = merge_problems() + escalations()
+def model_server():
+    """MODELS-NOT-READY when omlx is down or a role model isn't loaded (read-only probe).
+    Quiet while the factory is paused: that's when models get swapped."""
+    if os.path.exists(os.path.join(FACTORY, ".factory", "paused-tasks.txt")):
+        return []
+    try:
+        res = subprocess.run([os.path.join(FACTORY, "scripts", "health.sh"), "--quiet"],
+                             capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+    except Exception as exc:
+        return [f"MODELS-NOT-READY health check failed to run: {exc}"]
+    if res.returncode == 0:
+        return []
+    first = (res.stderr.strip().splitlines() or ["unknown"])[0].removeprefix("health: ")
+    return [f"MODELS-NOT-READY {first}: run ./factory.sh pause until it is fixed"]
+
+
+problems = merge_problems() + escalations() + model_server()
 for t in tasks("blocked"):
     problems.append(f"BLOCKED {t['id']} ({t.get('assignee')}) {t.get('title')}")
 

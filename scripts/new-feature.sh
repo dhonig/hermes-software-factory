@@ -28,6 +28,8 @@ $(cat "$f")"
   done
 fi
 
+require_healthy
+
 body_file="$STATE_DIR/planner-body.$$.md"
 cat > "$body_file" <<EOF
 Feature request: $goal
