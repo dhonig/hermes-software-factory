@@ -14,6 +14,10 @@
 # Fast-lane tickets (factory.sh ticket) also have a done-when command in
 # .factory/done-when/<worktree-name>; it runs after ./check.sh under the same
 # limit, and a pass is only recorded when both exit 0.
+#
+# Then the security scanners run (scripts/scan.sh: gitleaks, semgrep; SCANNERS
+# in factory.conf). A finding fails the gate; a scanner that isn't installed is
+# skipped with a warning.
 . "$(dirname "$0")/../lib/common.sh"
 
 [ $# -ge 1 ] || die "usage: check-gate.sh <worktree-path>"
@@ -44,6 +48,14 @@ if [ -f "$done_file" ]; then
   (cd "$wt" && run_limited "$CHECK_TIMEOUT" sh -c "$done_when") || rc=$?
   if [ "$rc" != 0 ]; then
     printf '%sFAIL:%s done-when exited %s on %s: %s\n' "$C_RED" "$C_OFF" "$rc" "$sha" "$done_when"
+    exit "$rc"
+  fi
+fi
+if [ -n "$SCANNERS" ]; then
+  rc=0
+  "$FACTORY_ROOT/scripts/scan.sh" "$wt" || rc=$?
+  if [ "$rc" != 0 ]; then
+    printf '%sFAIL:%s security scan failed on %s\n' "$C_RED" "$C_OFF" "$sha"
     exit "$rc"
   fi
 fi

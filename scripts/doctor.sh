@@ -18,6 +18,17 @@ check "hermes installed" "command -v hermes" "Install Hermes: https://hermes-age
 check "git installed" "command -v git"
 check "jq installed" "command -v jq" "brew install jq"
 
+log "Security scanners (optional; the check gate skips missing ones)"
+for sc in $(printf '%s' "$SCANNERS" | tr ',' ' '); do
+  if command -v "$sc" >/dev/null 2>&1; then
+    printf '  %sok%s    %s installed\n' "$C_GRN" "$C_OFF" "$sc"
+  else
+    printf '  %swarn%s  %s not installed: brew install %s\n' "$C_YEL" "$C_OFF" "$sc" "$sc"
+  fi
+done
+[ -n "$SCANNERS" ] || printf '  %swarn%s  SCANNERS is empty: no secret or code scan in the check gate\n' "$C_YEL" "$C_OFF"
+[ "$SECURITY_ROLE" = 1 ] && printf '  info  SECURITY_ROLE=1: the sf-security model role also checks every ticket\n'
+
 log "Factory config"
 check "factory.conf exists" "[ -f '$FACTORY_ROOT/factory.conf' ]" "cp factory.conf.example factory.conf"
 if [ -n "$TARGET_REPO" ]; then
