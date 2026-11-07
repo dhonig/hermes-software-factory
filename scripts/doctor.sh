@@ -30,14 +30,15 @@ done
 [ "$SECURITY_ROLE" = 1 ] && printf '  info  SECURITY_ROLE=1: the sf-security model role also checks every ticket\n'
 
 log "Factory config"
-check "factory.conf exists" "[ -f '$FACTORY_ROOT/factory.conf' ]" "cp factory.conf.example factory.conf"
+check "settings file (${FACTORY_CONFIG_FILE:-none})" "[ -n '$FACTORY_CONFIG_FILE' ]" "cp factory.example.toml factory.toml"
+[ "$FACTORY_CONFIG_FILE" = factory.conf ] && printf '  %swarn%s  factory.conf is deprecated: ./factory.sh config migrate\n' "$C_YEL" "$C_OFF"
 if [ -n "$TARGET_REPO" ]; then
   repo="${TARGET_REPO/#\~/$HOME}"
   check "TARGET_REPO is a git repo ($repo)" "[ -d '$repo/.git' ]"
   check "TARGET_REPO has no uncommitted changes" "[ -z \"\$(git -C '$repo' status --porcelain)\" ]" \
     "Commit or stash first, so task worktrees branch from a known state."
 else
-  check "TARGET_REPO set" "false" "Set TARGET_REPO in factory.conf."
+  check "TARGET_REPO set" "false" "Set target.repo in factory.toml."
 fi
 
 log "Hermes"

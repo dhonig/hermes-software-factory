@@ -1,2 +1,4 @@
 factory.conf
+factory.toml
 .factory/
+__pycache__/

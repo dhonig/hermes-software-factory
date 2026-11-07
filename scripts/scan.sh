@@ -7,7 +7,7 @@
 #   gitleaks  secrets in the commits on the branch (main..HEAD)
 #   semgrep   findings in the files the branch changed (SEMGREP_CONFIG, default p/default)
 #
-# SCANNERS (factory.conf) picks them: "gitleaks,semgrep" (default), or "" for none.
+# check.scanners in factory.toml picks them: ["gitleaks", "semgrep"] (default), or [] for none.
 # A scanner that isn't installed is skipped with a warning, so the gate still
 # passes; ./factory.sh doctor lists what's missing. Exits 1 on any finding.
 . "$(dirname "$0")/../lib/common.sh"

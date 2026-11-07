@@ -58,7 +58,7 @@ date '+%Y-%m-%dT%H:%M:%S%z' > "$dir/$id.marker"
   [ -n "$note" ] && { echo; echo "## Note from the operator"; echo "$note"; }
   echo
   echo "## Role rules"
-  cat "$FACTORY_ROOT/roles/$role.md"
+  render_role "$role"
   echo
   echo "## Your job"
   echo "Make ./check.sh pass and meet the ticket's acceptance criteria. Fix only what is needed."

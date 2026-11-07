@@ -9,14 +9,14 @@
 # still runs the checks, but records nothing.
 #
 # ./check.sh runs in its own process group, limited to CHECK_TIMEOUT seconds
-# (factory.conf, 0 = no limit); anything it leaves running is killed.
+# (check.timeout / check.smoke_timeout in factory.toml, 0 = no limit); anything it leaves running is killed.
 #
 # Fast-lane tickets (factory.sh ticket) also have a done-when command in
 # .factory/done-when/<worktree-name>; it runs after ./check.sh under the same
 # limit, and a pass is only recorded when both exit 0.
 #
 # Then the security scanners run (scripts/scan.sh: gitleaks, semgrep; SCANNERS
-# in factory.conf). A finding fails the gate; a scanner that isn't installed is
+# check.scanners in factory.toml). A finding fails the gate; a scanner that isn't installed is
 # skipped with a warning.
 . "$(dirname "$0")/../lib/common.sh"
 

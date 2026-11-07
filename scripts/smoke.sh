@@ -5,7 +5,7 @@
 #
 #   scripts/smoke.sh <worktree-path>
 #
-# The whole run is limited to SMOKE_TIMEOUT seconds (factory.conf, 0 = no limit)
+# The whole run is limited to SMOKE_TIMEOUT seconds (check.timeout / check.smoke_timeout in factory.toml, 0 = no limit)
 # and runs in its own process group: servers, trunk and browsers it starts are
 # killed when it ends, however it ends.
 . "$(dirname "$0")/../lib/common.sh"
