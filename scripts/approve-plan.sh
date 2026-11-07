@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Turn an approved Planner plan into build tasks.
 #
-# For each plan line this creates:
+# For each plan line this creates (create_chain in lib/common.sh):
 #   build (backend/frontend, own worktree + branch, reviewed by the Reviewer)
 #     -> security check (same worktree)
 #       -> QA (same worktree)
@@ -50,7 +50,6 @@ fi
 
 require_healthy
 
-reviewer=$(profile_name reviewer)
 prev_build=""
 n=0
 while IFS= read -r line; do
@@ -64,34 +63,9 @@ while IFS= read -r line; do
   wt="$WORKTREE_ROOT/${plan_id#t_}-$slug"
   key="$plan_id:$n"
 
-  parent_args=()
-  [ -n "$prev_build" ] && parent_args=(--parent "$prev_build")
-
-  build=$(create_task "$title" --assignee "$(profile_name "$role")" \
-    --workspace "worktree:$wt" --branch "$branch" --created-by factory \
-    --idempotency-key "$key:build" ${parent_args[@]+"${parent_args[@]}"} \
-    --body "$scope
-
-Work in the worktree for branch $branch. Commit your changes on that branch.
-When done, call kanban_request_review with reviewer="$reviewer". Always pass the
-reviewer; without it you would be asked to review your own work.
-Plan: $plan_id. Shared memory: .ecc/memory/ in the worktree.")
-
-  sec=$(create_task "Security check: $title" --assignee "$(profile_name security)" \
-    --workspace "dir:$wt" --parent "$build" --created-by factory \
-    --idempotency-key "$key:security" \
-    --body "Security-check the diff of branch $branch against the default branch. Build task: $build.")
-
-  qa=$(create_task "QA: $title" --assignee "$(profile_name qa)" \
-    --workspace "dir:$wt" --parent "$sec" --created-by factory \
-    --idempotency-key "$key:qa" \
-    --body "Verify branch $branch end to end. Acceptance criteria: $scope")
-
-  notify_discord "$build" "$role"
-  notify_discord "$build" reviewer      # the Reviewer finishes the build card
-  notify_discord "$sec" security
-  notify_discord "$qa" qa alerts        # "ready to merge" also goes to #factory-alerts
-  log "[$role] $title: build $build -> security $sec -> qa $qa"
+  create_chain "$role" "$title" "$scope" "$branch" "$wt" "$key" "$prev_build" "Plan: $plan_id." "Acceptance criteria: $scope"
+  build="$CHAIN_BUILD"
+  log "[$role] $title: $CHAIN_DESC"
   prev_build="$build"
 done < "$plan_file"
 
