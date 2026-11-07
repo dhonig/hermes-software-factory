@@ -23,6 +23,8 @@ ESCALATE_MAX_TURNS=40
 ESCALATE_MAX_BUDGET_USD=5
 DISCORD_NOTIFY_CHANNEL=""
 DISCORD_GUILD_ID=""
+CHECK_TIMEOUT="${CHECK_TIMEOUT:-1800}"
+SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-900}"
 
 [ -f "$FACTORY_ROOT/factory.conf" ] && . "$FACTORY_ROOT/factory.conf"
 
@@ -53,6 +55,11 @@ run() {
   fi
 }
 
+# Run a command in its own process group under a hard time limit (0 = none).
+# Whatever it leaves running is killed when it exits. Exits 124 on timeout.
+#   run_limited <seconds> <command> [args...]
+run_limited() { "$FACTORY_ROOT/lib/run-limited.pl" "$@"; }
+
 # Strip --dry-run from an argument list so scripts can parse the rest.
 # Usage: eval "set -- $(strip_flags "$@")"
 strip_flags() {
@@ -74,6 +81,15 @@ board_exists() {
 }
 
 kanban() { hermes kanban --board "$BOARD" "$@"; }
+
+# The board's SQLite file. HERMES_KANBAN_HOME points scratch boards elsewhere.
+kanban_db() { printf '%s/kanban/boards/%s/kanban.db' "${HERMES_KANBAN_HOME:-$HOME/.hermes}" "$BOARD"; }
+
+# Read-only query against the board DB (tab-separated rows). Never writes:
+# query_only refuses any write, and mode=ro can't open a WAL DB without sidecars.
+kanban_query() {
+  sqlite3 -separator "$(printf '\t')" -cmd "PRAGMA query_only = ON" "$(kanban_db)" "$1"
+}
 
 require_target_repo() {
   [ -n "$TARGET_REPO" ] || die "TARGET_REPO is not set. Copy factory.conf.example to factory.conf and set it."
