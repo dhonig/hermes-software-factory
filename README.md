@@ -56,7 +56,7 @@ Every command accepts `--dry-run`, and `init` is safe to rerun.
 | `health` | Read-only model-server check: omlx answers, and each role's model is loaded and not loading. Never loads or unloads anything |
 | `integrate <build-task> ["what failed"]` | Hand a branch that won't merge cleanly to the Integrator |
 | `escalate <task> ["note"]` | Hand a stuck build task to headless Claude Code, then back to review |
-| `status` | Blocked, in review, running, ready |
+| `status [--cost] [--all]` | Blocked, in review, running, ready; then the cost of each delivered ticket. `--cost` shows only the cost table, `--all` adds open tickets |
 | `teardown` | Archive the board, delete factory profiles, restore settings |
 
 ## Things to know
@@ -66,6 +66,7 @@ Every command accepts `--dry-run`, and `init` is safe to rerun.
 - **Builds run one after another.** Each build task depends on the previous one, so branches stack cleanly. Security and QA for one task can run while the next task builds.
 - **Checks have hard limits.** `check` and `smoke` run in their own process group under `CHECK_TIMEOUT` / `SMOKE_TIMEOUT` (`factory.conf`). On timeout the gate fails with exit 124 and records nothing; whatever they started is killed when they end, so no `trunk serve` or debug backend outlives a run.
 - **Pause before touching models.** Reloading a model in oMLX crashes the workers using it; most wasted runs came from that. Run `./factory.sh pause`, change models, then `./factory.sh resume`, which refuses until `health` passes. `feature` and `approve` also refuse while the model server isn't ready (`FACTORY_SKIP_HEALTH=1` overrides), and the factory-watch cron reports `MODELS-NOT-READY`. Hermes has no hook that can veto a dispatch, so these are the gates. Pause uses `schedule`, not `block`: Hermes sends a card to triage the second time it is blocked for the same reason.
+- **What a ticket cost.** `./factory.sh status --cost` lists each delivered ticket (QA passed; `merged` once its branch is on main) with agent minutes, runs, failed runs (crashed, timed out, reclaimed, gave up), runs that ended blocked, Claude escalations and their dollars/tokens (from `.factory/escalations/<task>.log`), plus totals and planning time. A ticket is everything run in its build worktree: build, review, security and QA. It reads the board DB read-only.
 - **You merge.** Agents commit on their task branch and never push or merge. When QA passes, merge the `factory/...` branch yourself.
 - **Teardown** archives the board, deletes the `sf-*` profiles and restores kanban settings. It leaves Discord settings (a backup of `.env` is in `.factory/`) and task branches alone.
 

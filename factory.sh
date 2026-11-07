@@ -23,7 +23,9 @@ Work
   check <worktree>     run ./check.sh and record a pass for HEAD (hand-offs need this)
   escalate <task-id> ["note"]
                        hand a stuck build task to headless Claude Code, then back to review
-  status               what's blocked, in review, running, ready
+  status [--cost] [--all]
+                       what's blocked, in review, running, ready; then cost per delivered
+                       ticket (--cost: only that, --all: open tickets too)
   reap [<worktree>...] stop processes left running in task worktrees [--force]
   pause ["reason"]     hold every card that could start a worker, stop workers, record them
   resume [--force]     check the model server, then release exactly what pause held
