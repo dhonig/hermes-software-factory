@@ -3,7 +3,7 @@
 #
 # For each plan line this creates (create_chain in lib/common.sh):
 #   build (backend/frontend, own worktree + branch, reviewed by the Reviewer)
-#     -> security check (same worktree)
+#     -> security check (same worktree; only with SECURITY_ROLE=1)
 #       -> QA (same worktree)
 # Build tasks are chained so only one builds at a time, which keeps merges simple.
 #

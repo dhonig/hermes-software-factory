@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fast lane for small tickets: skip the Planner and plan approval, and create one
-# build -> security -> QA chain directly (the same chain approve creates).
+# build -> QA chain directly (the same chain approve creates; with
+# SECURITY_ROLE=1 a security check sits between them).
 #
 #   scripts/ticket.sh "<title>" --done-when "<command>" [--role backend|frontend] [--details "..."]
 #

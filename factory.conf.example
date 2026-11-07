@@ -33,6 +33,14 @@ ESCALATE_MAX_BUDGET_USD=5       # hard stop per escalation
 CHECK_TIMEOUT=1800              # factory.sh check (./check.sh)
 SMOKE_TIMEOUT=900               # factory.sh smoke
 
+# Security: the check gate runs real scanners on every branch (missing ones are
+# skipped with a warning; ./factory.sh doctor lists them). The sf-security model
+# role found nothing in 29 runs, so it's off by default; 1 puts a security-check
+# task back between build and QA. The role and its profile stay either way.
+SCANNERS="gitleaks,semgrep"     # comma-separated; "" = no scanners
+SEMGREP_CONFIG="p/default"      # semgrep ruleset
+SECURITY_ROLE=0
+
 # Model server check (factory.sh health, run before resume/feature/approve).
 # Read-only: it only GETs <OMLX_URL>/v1/models/status. Empty = derive from Hermes config.
 OMLX_URL=""                     # e.g. http://127.0.0.1:8000

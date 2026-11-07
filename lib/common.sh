@@ -25,6 +25,9 @@ ESCALATE_MAX_BUDGET_USD=5
 DISCORD_NOTIFY_CHANNEL=""
 DISCORD_GUILD_ID=""
 OMLX_URL="${OMLX_URL:-}"
+SECURITY_ROLE="${SECURITY_ROLE:-0}"
+SCANNERS="${SCANNERS-gitleaks,semgrep}"
+SEMGREP_CONFIG="${SEMGREP_CONFIG:-p/default}"
 CHECK_TIMEOUT="${CHECK_TIMEOUT:-1800}"
 SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-900}"
 
@@ -77,8 +80,15 @@ strip_flags() {
 
 profile_name() { printf '%s%s' "$PROFILE_PREFIX" "$1"; }
 
-# Roles that get work dispatched to them.
-active_roles() { printf '%s\n' $ROLES; }
+# Roles that get work dispatched to them. The security role only runs with
+# SECURITY_ROLE=1; by default the check gate's scanners replace it.
+active_roles() {
+  local r
+  for r in $ROLES; do
+    [ "$r" = security ] && [ "$SECURITY_ROLE" != 1 ] && continue
+    printf '%s\n' "$r"
+  done
+}
 
 # Refuse to release work to the dispatcher while the model server isn't ready
 # (omlx loading a model mid-run crashes workers). FACTORY_SKIP_HEALTH=1 skips it.
@@ -141,7 +151,8 @@ create_task() {
 }
 
 # Create one ticket's tasks: build (own worktree + branch, reviewed by the
-# Reviewer) -> security check -> QA, both in the build's worktree. Used by
+# Reviewer) -> [security check, only with SECURITY_ROLE=1] -> QA, in the
+# build's worktree. Used by
 # approve-plan.sh and ticket.sh. Sets CHAIN_BUILD, CHAIN_SEC, CHAIN_QA, CHAIN_DESC.
 #   create_chain <role> <title> <scope> <branch> <worktree> <key> <parent-build|""> <context> <qa-criteria>
 create_chain() {
@@ -160,11 +171,15 @@ When done, call kanban_request_review with reviewer="$reviewer". Always pass the
 reviewer; without it you would be asked to review your own work.
 $context Shared memory: .ecc/memory/ in the worktree.")
 
-  CHAIN_SEC=$(create_task "Security check: $title" --assignee "$(profile_name security)" \
-    --workspace "dir:$wt" --parent "$CHAIN_BUILD" --created-by factory \
-    --idempotency-key "$key:security" \
-    --body "Security-check the diff of branch $branch against the default branch. Build task: $CHAIN_BUILD.")
-  local qa_parent="$CHAIN_SEC"
+  CHAIN_SEC=""
+  local qa_parent="$CHAIN_BUILD"
+  if [ "$SECURITY_ROLE" = 1 ]; then
+    CHAIN_SEC=$(create_task "Security check: $title" --assignee "$(profile_name security)" \
+      --workspace "dir:$wt" --parent "$CHAIN_BUILD" --created-by factory \
+      --idempotency-key "$key:security" \
+      --body "Security-check the diff of branch $branch against the default branch. Build task: $CHAIN_BUILD.")
+    qa_parent="$CHAIN_SEC"
+  fi
 
   CHAIN_QA=$(create_task "QA: $title" --assignee "$(profile_name qa)" \
     --workspace "dir:$wt" --parent "$qa_parent" --created-by factory \
@@ -175,7 +190,7 @@ $context Shared memory: .ecc/memory/ in the worktree.")
   notify_discord "$CHAIN_BUILD" reviewer      # the Reviewer finishes the build card
   [ -n "$CHAIN_SEC" ] && notify_discord "$CHAIN_SEC" security
   notify_discord "$CHAIN_QA" qa alerts        # "ready to merge" also goes to #factory-alerts
-  CHAIN_DESC="build $CHAIN_BUILD -> security $CHAIN_SEC -> qa $CHAIN_QA"
+  CHAIN_DESC="build $CHAIN_BUILD -> ${CHAIN_SEC:+security $CHAIN_SEC -> }qa $CHAIN_QA"
 }
 
 # Post a task's outcome (done, blocked) to Discord: in its role's channel, so

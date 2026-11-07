@@ -4,9 +4,9 @@ Bash automation for the setup in Raell Dottin's article [Building a Software Fac
 
 ```
 feature request ─▶ Planner ─▶ (you approve) ─▶ Backend / Frontend build ─▶ Reviewer
-                                                  own worktree + branch      │ approve / request changes
+small ticket ──────(factory.sh ticket)──────▶  own worktree + branch      │ approve / request changes
                                                                              ▼
-                                                                 Security check ─▶ QA ─▶ you merge
+                                              check gate (check.sh, gitleaks, semgrep) ─▶ QA ─▶ you merge
 ```
 
 ## What it sets up
@@ -17,7 +17,7 @@ feature request ─▶ Planner ─▶ (you approve) ─▶ Backend / Frontend bu
 | Profiles per role | `sf-planner`, `sf-backend`, `sf-frontend`, `sf-reviewer`, `sf-security`, `sf-qa`, each with a role prompt from `roles/` as its `SOUL.md` |
 | Planner never codes | `sf-planner` has terminal, file, code execution and delegation tools disabled |
 | Git worktree per task | Every build task runs in `<repo>/.worktrees/<task>` on its own `factory/...` branch |
-| Independent review and security | Separate profiles and contexts; the builder never has the last word |
+| Independent review and security | Separate profiles and contexts; the builder never has the last word. Security is gitleaks + semgrep in the check gate; the `sf-security` model role is optional (`SECURITY_ROLE=1`) |
 | Low concurrency | 2 tasks running at most, 1 per role, blocked after 2 consecutive failures |
 | Auto-decomposition off | `kanban.auto_decompose=false`; you approve each plan with `./factory.sh approve` |
 | Quiet routine updates | No wake-on-completion; tasks post passive notices to `#factory-alerts` |
@@ -68,6 +68,7 @@ Every command accepts `--dry-run`, and `init` is safe to rerun.
 - **Checks have hard limits.** `check` and `smoke` run in their own process group under `CHECK_TIMEOUT` / `SMOKE_TIMEOUT` (`factory.conf`). On timeout the gate fails with exit 124 and records nothing; whatever they started is killed when they end, so no `trunk serve` or debug backend outlives a run.
 - **Pause before touching models.** Reloading a model in oMLX crashes the workers using it; most wasted runs came from that. Run `./factory.sh pause`, change models, then `./factory.sh resume`, which refuses until `health` passes. `feature` and `approve` also refuse while the model server isn't ready (`FACTORY_SKIP_HEALTH=1` overrides), and the factory-watch cron reports `MODELS-NOT-READY`. Hermes has no hook that can veto a dispatch, so these are the gates. Pause uses `schedule`, not `block`: Hermes sends a card to triage the second time it is blocked for the same reason.
 - **Fast lane.** `./factory.sh ticket "Return 404 JSON for unknown boards" --done-when "cargo test -p hermes-board-backend unknown_board"` skips planning. The done-when command is stored in `.factory/done-when/<worktree>`, outside the repo where the builder can't change it. Its passes are recorded per worktree (`check-pass/<sha>@<worktree>`), so a pass for the same commit elsewhere doesn't count.
+- **Security is scanners, not a model.** Every `check` runs gitleaks (secrets in `main..HEAD`, output redacted) and semgrep (`SEMGREP_CONFIG` on the changed files, metrics off) after `./check.sh`; a finding fails the gate. Install them with `brew install gitleaks semgrep`; until then the gate warns and skips them. The `sf-security` model role ran 29 times without a finding, so `approve` and `ticket` only create a security-check task with `SECURITY_ROLE=1`.
 - **What a ticket cost.** `./factory.sh status --cost` lists each delivered ticket (QA passed; `merged` once its branch is on main) with agent minutes, runs, failed runs (crashed, timed out, reclaimed, gave up), runs that ended blocked, Claude escalations and their dollars/tokens (from `.factory/escalations/<task>.log`), plus totals and planning time. A ticket is everything run in its build worktree: build, review, security and QA. It reads the board DB read-only.
 - **You merge.** Agents commit on their task branch and never push or merge. When QA passes, merge the `factory/...` branch yourself.
 - **Teardown** archives the board, deletes the `sf-*` profiles and restores kanban settings. It leaves Discord settings (a backup of `.env` is in `.factory/`) and task branches alone.

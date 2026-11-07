@@ -41,7 +41,7 @@ export FACTORY_TARGET_REPO="$repo"
 out=$("$ROOT/factory.sh" ticket "Add the X endpoint" --done-when "cargo test x" --dry-run 2>&1); rc=$?
 expect "dry-run exits 0" "$rc" 0
 case "$out" in *"create Add\\ the\\ X\\ endpoint --assignee sf-backend --workspace worktree:"*"ticket-add-the-x-endpoint --branch factory/ticket/add-the-x-endpoint"*) ok "build task in its own worktree and branch" ;; *) bad "build task: $out" ;; esac
-case "$out" in *"--assignee sf-security --workspace dir:"*"--assignee sf-qa --workspace dir:"*) ok "security and QA follow" ;; *) bad "chain: $out" ;; esac
+case "$out" in *"--assignee sf-qa --workspace dir:"*) ok "QA follows in the same worktree" ;; *) bad "chain: $out" ;; esac
 case "$out" in *"Planner"*|*"sf-planner"*) bad "skips the Planner" ;; *) ok "skips the Planner" ;; esac
 case "$out" in *"write "*"done-when/ticket-add-the-x-endpoint: cargo test x"*) ok "shows the done-when it stores" ;; *) bad "done-when: $out" ;; esac
 [ -f "$FACTORY_STATE_DIR/done-when/ticket-add-the-x-endpoint" ] && bad "dry-run stores nothing" || ok "dry-run stores nothing"

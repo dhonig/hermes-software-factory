@@ -16,9 +16,10 @@ Setup
 
 Work
   feature "<goal>"     ask the Planner for a plan [--details "..."]
-  approve <task-id>    review the plan and create build -> security -> QA tasks [--yes]
+  approve <task-id>    review the plan and create build -> QA tasks [--yes]
+                       (build -> security -> QA with SECURITY_ROLE=1)
   ticket "<title>" --done-when "<command>" [--role backend|frontend] [--details "..."]
-                       fast lane: skip the Planner, one build -> security -> QA chain; the
+                       fast lane: skip the Planner, one build -> QA chain; the
                        check gate also requires <command> to exit 0 in the worktree
   integrate <build-id> ["what failed"]
                        hand a branch that won't merge cleanly to the Integrator
