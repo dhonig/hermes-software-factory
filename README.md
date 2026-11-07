@@ -41,11 +41,27 @@ cp factory.conf.example factory.conf     # set TARGET_REPO
 
 Every command accepts `--dry-run`, and `init` is safe to rerun.
 
+## Commands
+
+| Command | What it does |
+|---|---|
+| `init`, `discord`, `channels`, `doctor` | Setup (see Quick start) |
+| `feature "<goal>" [--details "..."]` | Ask the Planner for a plan |
+| `approve <plan-task>` | Review the plan, then create build → security → QA tasks |
+| `check <worktree>` | Run `./check.sh` (limited to `CHECK_TIMEOUT`) and record a pass for HEAD; hand-offs need it |
+| `smoke <worktree>` | Build, start and exercise the backend/frontend (limited to `SMOKE_TIMEOUT`) |
+| `reap [<worktree>...] [--force]` | Stop processes left running in task worktrees (`trunk serve`, debug backends). Without paths: every task worktree on the board, never other checkouts. Skips live kanban workers unless `--force` |
+| `integrate <build-task> ["what failed"]` | Hand a branch that won't merge cleanly to the Integrator |
+| `escalate <task> ["note"]` | Hand a stuck build task to headless Claude Code, then back to review |
+| `status` | Blocked, in review, running, ready |
+| `teardown` | Archive the board, delete factory profiles, restore settings |
+
 ## Things to know
 
 - **Guardrails are global.** Hermes reads the kanban limits from `~/.hermes/config.yaml`, so they also apply to your other boards. `configure-guardrails.sh` saves the old values in `.factory/` and `teardown` restores them.
 - **Profiles clone `default`.** They use its model and API keys but not its messaging channels, so only the default gateway talks to Discord.
 - **Builds run one after another.** Each build task depends on the previous one, so branches stack cleanly. Security and QA for one task can run while the next task builds.
+- **Checks have hard limits.** `check` and `smoke` run in their own process group under `CHECK_TIMEOUT` / `SMOKE_TIMEOUT` (`factory.conf`). On timeout the gate fails with exit 124 and records nothing; whatever they started is killed when they end, so no `trunk serve` or debug backend outlives a run.
 - **You merge.** Agents commit on their task branch and never push or merge. When QA passes, merge the `factory/...` branch yourself.
 - **Teardown** archives the board, deletes the `sf-*` profiles and restores kanban settings. It leaves Discord settings (a backup of `.env` is in `.factory/`) and task branches alone.
 
@@ -54,10 +70,12 @@ Every command accepts `--dry-run`, and `init` is safe to rerun.
 ```
 factory.sh                 entry point
 lib/common.sh              shared helpers, config loading, --dry-run
+lib/run-limited.pl         run a command in its own process group with a hard time limit
 scripts/                   one script per step
 roles/*.md                 role prompts (become each profile's SOUL.md)
 hermes-plugin/factory-guard/  dispatcher hooks installed by init
 templates/memory/*.md      seed files for .ecc/memory/
+tests/test-*.sh            unit-style tests (no board or model needed): for t in tests/test-*.sh; do $t; done
 factory.conf.example       settings; copy to factory.conf
 .factory/                  local state: backups, what was created, approved plans
 ```

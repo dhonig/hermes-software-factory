@@ -7,6 +7,9 @@
 #
 # A pass only counts for committed code: with uncommitted tracked changes it
 # still runs the checks, but records nothing.
+#
+# ./check.sh runs in its own process group, limited to CHECK_TIMEOUT seconds
+# (factory.conf, 0 = no limit); anything it leaves running is killed.
 . "$(dirname "$0")/../lib/common.sh"
 
 [ $# -ge 1 ] || die "usage: check-gate.sh <worktree-path>"
@@ -18,10 +21,14 @@ sha=$(git -C "$wt" rev-parse HEAD)
 dirty=0
 git -C "$wt" diff --quiet HEAD || dirty=1
 
-log "Running ./check.sh on $sha in $wt"
+log "Running ./check.sh on $sha in $wt (limit ${CHECK_TIMEOUT}s)"
 rc=0
-(cd "$wt" && ./check.sh) || rc=$?
-if [ "$rc" != 0 ]; then
+(cd "$wt" && run_limited "$CHECK_TIMEOUT" ./check.sh) || rc=$?
+if [ "$rc" = 124 ]; then
+  printf '%sFAIL:%s check.sh timed out after %ss on %s (CHECK_TIMEOUT); its processes were killed\n' \
+    "$C_RED" "$C_OFF" "$CHECK_TIMEOUT" "$sha"
+  exit "$rc"
+elif [ "$rc" != 0 ]; then
   printf '%sFAIL:%s check.sh exited %s on %s\n' "$C_RED" "$C_OFF" "$rc" "$sha"
   exit "$rc"
 fi

@@ -24,6 +24,7 @@ Work
   escalate <task-id> ["note"]
                        hand a stuck build task to headless Claude Code, then back to review
   status               what's blocked, in review, running, ready
+  reap [<worktree>...] stop processes left running in task worktrees [--force]
 
 Cleanup
   teardown             archive the board, delete factory profiles, restore settings
@@ -49,6 +50,7 @@ case "$cmd" in
   check)    "$S/check-gate.sh" "$@" ;;
   escalate) "$S/escalate.sh" "$@" ;;
   status)   "$S/status.sh" "$@" ;;
+  reap)     "$S/reap.sh" "$@" ;;
   teardown) "$S/teardown.sh" "$@" ;;
   ""|-h|--help|help) usage ;;
   *) usage; exit 1 ;;

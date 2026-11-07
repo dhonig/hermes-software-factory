@@ -4,7 +4,19 @@
 # Exits non-zero on any failure and prints the server's log tail.
 #
 #   scripts/smoke.sh <worktree-path>
+#
+# The whole run is limited to SMOKE_TIMEOUT seconds (factory.conf, 0 = no limit)
+# and runs in its own process group: servers, trunk and browsers it starts are
+# killed when it ends, however it ends.
 . "$(dirname "$0")/../lib/common.sh"
+
+if [ -z "${_FACTORY_SMOKE_LIMITED:-}" ]; then
+  rc=0
+  _FACTORY_SMOKE_LIMITED=1 run_limited "$SMOKE_TIMEOUT" "$0" "$@" || rc=$?
+  [ "$rc" = 124 ] && printf '%sFAIL:%s smoke test timed out after %ss (SMOKE_TIMEOUT); its processes were killed\n' \
+    "$C_RED" "$C_OFF" "$SMOKE_TIMEOUT"
+  exit "$rc"
+fi
 
 [ $# -ge 1 ] || die "usage: smoke.sh <worktree-path>"
 wt="$(cd "$1" && pwd)" || die "No such worktree: $1"

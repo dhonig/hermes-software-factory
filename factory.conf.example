@@ -27,6 +27,12 @@ ESCALATE_AUTO=0                 # 1 = factory-watch escalates compile failures, 
 ESCALATE_MAX_TURNS=40
 ESCALATE_MAX_BUDGET_USD=5       # hard stop per escalation
 
+# Hard limits, in seconds (0 = no limit). check.sh and the smoke test run in
+# their own process group; on timeout, or when they finish, everything they
+# started (trunk serve, debug backends) is killed.
+CHECK_TIMEOUT=1800              # factory.sh check (./check.sh)
+SMOKE_TIMEOUT=900               # factory.sh smoke
+
 # Discord channel IDs (written here by scripts/discord-setup.sh).
 DISCORD_NOTIFY_CHANNEL=""
 DISCORD_GUILD_ID=""
