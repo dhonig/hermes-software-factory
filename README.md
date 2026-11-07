@@ -14,7 +14,7 @@ small ticket ──────(factory.sh ticket)──────▶  own wor
 | Article concept | Here |
 |---|---|
 | Durable Kanban board | A dedicated `software-factory` board (your other boards are untouched) |
-| Profiles per role | `sf-planner`, `sf-backend`, `sf-frontend`, `sf-reviewer`, `sf-security`, `sf-qa`, each with a role prompt from `roles/` as its `SOUL.md` |
+| Profiles per role | `sf-planner`, `sf-backend`, `sf-frontend`, `sf-reviewer`, `sf-security` (optional, see below), `sf-qa`, `sf-integrator`, each with a role prompt from `roles/` as its `SOUL.md` |
 | Planner never codes | `sf-planner` has terminal, file, code execution and delegation tools disabled |
 | Git worktree per task | Every build task runs in `<repo>/.worktrees/<task>` on its own `factory/...` branch |
 | Independent review and security | Separate profiles and contexts; the builder never has the last word. Security is gitleaks + semgrep in the check gate; the `sf-security` model role is optional (`SECURITY_ROLE=1`) |
@@ -31,7 +31,7 @@ small ticket ──────(factory.sh ticket)──────▶  own wor
 cp factory.conf.example factory.conf     # set TARGET_REPO
 ./factory.sh init                        # board, profiles, guardrails, .ecc/memory
 ./factory.sh discord                     # interactive; you paste the bot token
-./factory.sh channels                    # one Discord channel per role (rerun anytime)
+./factory.sh channels                    # one Discord channel per role, incl. #integrator (rerun anytime)
 ./factory.sh doctor                      # everything green?
 
 ./factory.sh feature "Add CSV export to the reports page"
@@ -55,7 +55,8 @@ Every command accepts `--dry-run`, and `init` is safe to rerun.
 | `pause ["reason"]` | Hold every card that could start a worker (todo/ready/running via `kanban schedule`; review cards are reopened and scheduled), stop their workers, reap leftovers, and record each card in `.factory/paused-tasks.txt`. Blocked cards are left alone |
 | `resume [--force]` | Run `health`, then release exactly the cards `pause` held (review cards go back to the Reviewer). Cards blocked before the pause stay blocked. `--force` skips the health check |
 | `health` | Read-only model-server check: omlx answers, and each role's model is loaded and not loading. Never loads or unloads anything |
-| `integrate <build-task> ["what failed"]` | Hand a branch that won't merge cleanly to the Integrator |
+| `packet <task> [--pr]` | Review packet for a QA-passed ticket: `.factory/review/<build>.md` with the ticket, done-when, check-gate record, whether it merges cleanly (`git merge-tree`), diff stat, commits, and the Reviewer's and QA's summaries (QA's includes the smoke output). `--pr` also pushes the branch and opens a draft PR, only with a GitHub `origin` and `gh` logged in. The factory-watch cron writes one for every QA-passed, unmerged branch |
+| `integrate <build-task> ["what failed"]` | Hand a branch that won't merge cleanly to the Integrator (see below) |
 | `escalate <task> ["note"]` | Hand a stuck build task to headless Claude Code, then back to review |
 | `status [--cost] [--all]` | Blocked, in review, running, ready; then the cost of each delivered ticket. `--cost` shows only the cost table, `--all` adds open tickets |
 | `teardown` | Archive the board, delete factory profiles, restore settings |
@@ -72,6 +73,10 @@ Every command accepts `--dry-run`, and `init` is safe to rerun.
 - **What a ticket cost.** `./factory.sh status --cost` lists each delivered ticket (QA passed; `merged` once its branch is on main) with agent minutes, runs, failed runs (crashed, timed out, reclaimed, gave up), runs that ended blocked, Claude escalations and their dollars/tokens (from `.factory/escalations/<task>.log`), plus totals and planning time. A ticket is everything run in its build worktree: build, review, security and QA. It reads the board DB read-only.
 - **You merge.** Agents commit on their task branch and never push or merge. When QA passes, merge the `factory/...` branch yourself.
 - **Teardown** archives the board, deletes the `sf-*` profiles and restores kanban settings. It leaves Discord settings (a backup of `.env` is in `.factory/`) and task branches alone.
+
+## Merging and the Integrator
+
+When QA passes, read `.factory/review/<build>.md` (`./factory.sh packet <task>` writes it on demand). If it says the branch merges cleanly, merge it yourself. If it lists conflicts, run `./factory.sh integrate <build-task>`. The `sf-integrator` profile (`roles/integrator.md`, coder model `INTEGRATOR_MODEL`, default `BUILDER_MODEL`) gets its own worktree on `integrate/<slug>` cut from main. It merges the branch, resolves conflicts so both sides survive, and gets `./check.sh` passing. It never adds features or merges into main, and it blocks with a question when a conflict needs a design decision. Its task notices go to `#integrator`, which needs a Discord channel: create it, then rerun `./factory.sh channels`. You still merge `integrate/<slug>`.
 
 ## Layout
 

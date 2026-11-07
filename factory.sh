@@ -11,7 +11,8 @@ usage: ./factory.sh <command> [args] [--dry-run]
 Setup
   init                 board + role profiles + guardrails + .ecc/memory + guard plugin (safe to rerun)
   discord              connect the gateway to Discord (interactive; you paste the token)
-  channels             give each role its own Discord channel (asks for 6 channel IDs)
+  channels             give each role its own Discord channel (asks for one ID per role,
+                       including #integrator)
   doctor               check tools, config, gateway, board, profiles
 
 Work
@@ -21,6 +22,9 @@ Work
   ticket "<title>" --done-when "<command>" [--role backend|frontend] [--details "..."]
                        fast lane: skip the Planner, one build -> QA chain; the
                        check gate also requires <command> to exit 0 in the worktree
+  packet <task-id> [--pr]
+                       review packet for a QA-passed ticket in .factory/review/<build>.md;
+                       --pr also pushes the branch and opens a draft PR (GitHub remote only)
   integrate <build-id> ["what failed"]
                        hand a branch that won't merge cleanly to the Integrator
   smoke <worktree>     build the backend, start it on a free port and curl its endpoints
@@ -56,6 +60,7 @@ case "$cmd" in
   approve)  "$S/approve-plan.sh" "$@" ;;
   ticket)   "$S/ticket.sh" "$@" ;;
   integrate) "$S/integrate.sh" "$@" ;;
+  packet)   "$S/packet.sh" "$@" ;;
   smoke)    "$S/smoke.sh" "$@" ;;
   check)    "$S/check-gate.sh" "$@" ;;
   escalate) "$S/escalate.sh" "$@" ;;
