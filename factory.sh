@@ -25,6 +25,9 @@ Work
                        hand a stuck build task to headless Claude Code, then back to review
   status               what's blocked, in review, running, ready
   reap [<worktree>...] stop processes left running in task worktrees [--force]
+  pause ["reason"]     hold every card that could start a worker, stop workers, record them
+  resume [--force]     check the model server, then release exactly what pause held
+  health               read-only check: omlx up and every role's model loaded
 
 Cleanup
   teardown             archive the board, delete factory profiles, restore settings
@@ -51,6 +54,9 @@ case "$cmd" in
   escalate) "$S/escalate.sh" "$@" ;;
   status)   "$S/status.sh" "$@" ;;
   reap)     "$S/reap.sh" "$@" ;;
+  pause)    "$S/pause.sh" "$@" ;;
+  resume)   "$S/resume.sh" "$@" ;;
+  health)   "$S/health.sh" "$@" ;;
   teardown) "$S/teardown.sh" "$@" ;;
   ""|-h|--help|help) usage ;;
   *) usage; exit 1 ;;

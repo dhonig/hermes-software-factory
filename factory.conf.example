@@ -33,6 +33,12 @@ ESCALATE_MAX_BUDGET_USD=5       # hard stop per escalation
 CHECK_TIMEOUT=1800              # factory.sh check (./check.sh)
 SMOKE_TIMEOUT=900               # factory.sh smoke
 
+# Model server check (factory.sh health, run before resume/feature/approve).
+# Read-only: it only GETs <OMLX_URL>/v1/models/status. Empty = derive from Hermes config.
+OMLX_URL=""                     # e.g. http://127.0.0.1:8000
+# OMLX_API_KEY is read from ~/.hermes/config.yaml (providers.omlx.api_key); don't put it here.
+# FACTORY_SKIP_HEALTH=1 in the environment skips the check for one command.
+
 # Discord channel IDs (written here by scripts/discord-setup.sh).
 DISCORD_NOTIFY_CHANNEL=""
 DISCORD_GUILD_ID=""

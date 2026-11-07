@@ -51,6 +51,9 @@ Every command accepts `--dry-run`, and `init` is safe to rerun.
 | `check <worktree>` | Run `./check.sh` (limited to `CHECK_TIMEOUT`) and record a pass for HEAD; hand-offs need it |
 | `smoke <worktree>` | Build, start and exercise the backend/frontend (limited to `SMOKE_TIMEOUT`) |
 | `reap [<worktree>...] [--force]` | Stop processes left running in task worktrees (`trunk serve`, debug backends). Without paths: every task worktree on the board, never other checkouts. Skips live kanban workers unless `--force` |
+| `pause ["reason"]` | Hold every card that could start a worker (todo/ready/running via `kanban schedule`; review cards are reopened and scheduled), stop their workers, reap leftovers, and record each card in `.factory/paused-tasks.txt`. Blocked cards are left alone |
+| `resume [--force]` | Run `health`, then release exactly the cards `pause` held (review cards go back to the Reviewer). Cards blocked before the pause stay blocked. `--force` skips the health check |
+| `health` | Read-only model-server check: omlx answers, and each role's model is loaded and not loading. Never loads or unloads anything |
 | `integrate <build-task> ["what failed"]` | Hand a branch that won't merge cleanly to the Integrator |
 | `escalate <task> ["note"]` | Hand a stuck build task to headless Claude Code, then back to review |
 | `status` | Blocked, in review, running, ready |
@@ -62,6 +65,7 @@ Every command accepts `--dry-run`, and `init` is safe to rerun.
 - **Profiles clone `default`.** They use its model and API keys but not its messaging channels, so only the default gateway talks to Discord.
 - **Builds run one after another.** Each build task depends on the previous one, so branches stack cleanly. Security and QA for one task can run while the next task builds.
 - **Checks have hard limits.** `check` and `smoke` run in their own process group under `CHECK_TIMEOUT` / `SMOKE_TIMEOUT` (`factory.conf`). On timeout the gate fails with exit 124 and records nothing; whatever they started is killed when they end, so no `trunk serve` or debug backend outlives a run.
+- **Pause before touching models.** Reloading a model in oMLX crashes the workers using it; most wasted runs came from that. Run `./factory.sh pause`, change models, then `./factory.sh resume`, which refuses until `health` passes. `feature` and `approve` also refuse while the model server isn't ready (`FACTORY_SKIP_HEALTH=1` overrides), and the factory-watch cron reports `MODELS-NOT-READY`. Hermes has no hook that can veto a dispatch, so these are the gates. Pause uses `schedule`, not `block`: Hermes sends a card to triage the second time it is blocked for the same reason.
 - **You merge.** Agents commit on their task branch and never push or merge. When QA passes, merge the `factory/...` branch yourself.
 - **Teardown** archives the board, deletes the `sf-*` profiles and restores kanban settings. It leaves Discord settings (a backup of `.env` is in `.factory/`) and task branches alone.
 
